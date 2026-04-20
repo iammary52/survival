@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lane Survivor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hud-panel">
+      <div>
+        <p class="eyebrow">Neo Highway Defense</p>
+        <h1>Afterglow Run</h1>
+        <p class="subcopy">실제 캐릭터 아트와 강화된 전장 연출로 다시 태어난 하이웨이 생존 슈터. 좌우를 가르며 밀려오는 변이체를 뚫고 성장하세요.</p>
+      </div>
+      <div class="tips">
+        <p><span>이동</span> A / D 또는 ← / →</p>
+        <p><span>대시</span> Shift</p>
+        <p><span>사운드</span> M</p>
+        <p><span>재시작</span> Enter</p>
+      </div>
+    </section>
+
+    <section class="game-wrap">
+      <canvas id="game" width="960" height="700" aria-label="Lane shooting survival game"></canvas>
+      <div id="overlay" class="overlay hidden"></div>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
