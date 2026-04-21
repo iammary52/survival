@@ -18,7 +18,7 @@ const randInt = (min, max) => Math.floor(rand(min, max + 1));
 const assets = {
   hero: loadImage("assets/hero-set-v3.png"),
   enemy: loadImage("assets/enemy-set-v3.png"),
-  bg: loadImage("assets/bg-highway-set-v1.png"),
+  bg: loadImage("assets/bg-mobile-highway-v1.png"),
 };
 
 function loadImage(src) {
@@ -315,14 +315,14 @@ function createState() {
     horizonPulse: 0,
     player: {
       x: WIDTH * 0.5,
-      y: HEIGHT - 118,
-      w: 42,
-      h: 58,
+      y: HEIGHT - 190,
+      w: 58,
+      h: 78,
       vx: 0,
-      maxSpeed: 440,
-      accel: 1850,
-      drag: 0.86,
-      fireRate: 0.17,
+      maxSpeed: 560,
+      accel: 2600,
+      drag: 0.82,
+      fireRate: 0.16,
       fireTimer: 0,
       projectileSpeed: 760,
       projectilesPerShot: 1,
@@ -331,13 +331,14 @@ function createState() {
       pierce: 0,
       maxHp: 100,
       hp: 100,
+      shield: 0,
       dashCooldown: 0,
       hitFlash: 0,
       roll: 0,
       muzzleTimer: 0,
       companionCount: 0,
-      laneMinX: WIDTH * 0.33,
-      laneMaxX: WIDTH * 0.67,
+      laneMinX: WIDTH * 0.25,
+      laneMaxX: WIDTH * 0.75,
     },
   };
 }
@@ -357,16 +358,25 @@ function spawnEnemy(kind = "normal") {
   const t = state.time;
   const intensity = 1 + Math.min(3.2, t / 38);
   const eliteRoll = Math.random();
-  const fastType = eliteRoll < 0.22 + intensity * 0.03;
+  const fastType = eliteRoll < 0.18 + intensity * 0.025;
   const tankType = kind === "boss" || eliteRoll > 0.86;
-  const altType = Math.random() < 0.34;
+  const variantRoll = Math.random();
+  const variant = kind === "boss"
+    ? "boss"
+    : variantRoll < 0.28
+      ? "sprinter"
+      : variantRoll < 0.48
+        ? "crawler"
+        : variantRoll < 0.62
+          ? "brute"
+          : "runner";
 
   const base = {
     x: rand(state.player.laneMinX + 14, state.player.laneMaxX - 14),
     y: -40,
     w: 30,
     h: 40,
-    speed: rand(66, 100) * intensity,
+    speed: rand(74, 112) * intensity,
     hp: 1 + Math.floor(intensity * 0.72),
     maxHp: 1 + Math.floor(intensity * 0.72),
     damage: 9,
@@ -377,10 +387,10 @@ function spawnEnemy(kind = "normal") {
     hitTimer: 0,
     sprite: "enemy",
     kind,
-    variant: altType ? "sprinter" : "runner",
+    variant,
   };
 
-  if (fastType) {
+  if (fastType || variant === "sprinter") {
     base.speed *= 1.28;
     base.hp = Math.max(2, base.hp - 1);
     base.maxHp = base.hp;
@@ -388,6 +398,28 @@ function spawnEnemy(kind = "normal") {
     base.color = "#ff7b00";
     base.w = 26;
     base.scale *= 0.92;
+  }
+
+  if (variant === "crawler") {
+    base.speed *= 0.78;
+    base.hp += 2;
+    base.maxHp = base.hp;
+    base.damage = 7;
+    base.value += 3;
+    base.color = "#8ecae6";
+    base.scale *= 0.76;
+  }
+
+  if (variant === "brute") {
+    base.speed *= 0.74;
+    base.hp += 5;
+    base.maxHp = base.hp;
+    base.damage = 16;
+    base.value += 7;
+    base.color = "#ffb703";
+    base.w = 44;
+    base.h = 54;
+    base.scale *= 1.28;
   }
 
   if (tankType) {
@@ -402,7 +434,7 @@ function spawnEnemy(kind = "normal") {
     base.scale *= 1.22;
   }
 
-  if (altType) {
+  if (variant === "sprinter") {
     base.speed *= 1.08;
     base.hp += 1;
     base.maxHp = base.hp;
@@ -559,6 +591,25 @@ function createGateOption() {
       },
     },
     {
+      label: "MAX HP",
+      tier: 2,
+      color: "#ffadad",
+      apply: () => {
+        state.player.maxHp += 18;
+        state.player.hp = clamp(state.player.hp + 28, 0, state.player.maxHp);
+        addFloatingText("MAX HP UP", state.player.x, state.player.y - 60, "#ffadad");
+      },
+    },
+    {
+      label: "SHIELD",
+      tier: 1,
+      color: "#bde0fe",
+      apply: () => {
+        state.player.shield = Math.min(60, state.player.shield + 24);
+        addFloatingText("SHIELD +24", state.player.x, state.player.y - 60, "#bde0fe");
+      },
+    },
+    {
       label: "FIRE",
       tier: 2,
       color: "#caffbf",
@@ -587,6 +638,24 @@ function createGateOption() {
         addFloatingText("ALLY x2", state.player.x, state.player.y - 60, "#ff99c8");
       },
     },
+    {
+      label: "PIERCE",
+      tier: 2,
+      color: "#fdffb6",
+      apply: () => {
+        state.player.pierce = Math.min(4, state.player.pierce + 1);
+        addFloatingText("PIERCE +1", state.player.x, state.player.y - 60, "#fdffb6");
+      },
+    },
+    {
+      label: "WIDE",
+      tier: 2,
+      color: "#cdb4db",
+      apply: () => {
+        state.player.spread = Math.min(0.22, state.player.spread + 0.035);
+        addFloatingText("SPREAD UP", state.player.x, state.player.y - 60, "#cdb4db");
+      },
+    },
   ];
 
   const choices = optionPool.filter((option) => option.tier <= powerTier);
@@ -594,8 +663,8 @@ function createGateOption() {
 }
 
 function spawnGatePair() {
-  const leftX = WIDTH * 0.405;
-  const rightX = WIDTH * 0.595;
+  const leftX = WIDTH * 0.34;
+  const rightX = WIDTH * 0.66;
   const left = createGateOption();
   let right = createGateOption();
   while (right.label === left.label) {
@@ -604,11 +673,11 @@ function spawnGatePair() {
 
   state.gates.push({
     y: -60,
-    vy: 178,
+    vy: 210,
     leftX,
     rightX,
-    width: 116,
-    height: 30,
+    width: 132,
+    height: 42,
     passed: false,
     left,
     right,
@@ -685,7 +754,10 @@ function update(dt) {
     }
   }
 
-  if (moveAxis !== 0) {
+  if (pointerState.active) {
+    const diff = pointerState.x - player.x;
+    player.vx = clamp(diff * 9, -player.maxSpeed, player.maxSpeed);
+  } else if (moveAxis !== 0) {
     player.vx += moveAxis * player.accel * dt;
   } else {
     player.vx *= Math.pow(player.drag, dt * 60);
@@ -811,7 +883,7 @@ function update(dt) {
     const enemy = state.enemies[i];
     if (enemy.y > HEIGHT + 40) {
       state.enemies.splice(i, 1);
-      state.player.hp -= enemy.damage * 0.42;
+      applyPlayerDamage(enemy.damage * 0.42);
       state.player.hitFlash = 1;
       state.flash = 0.35;
       audio.playerHurt();
@@ -823,7 +895,7 @@ function update(dt) {
       enemy,
     )) {
       state.enemies.splice(i, 1);
-      state.player.hp -= enemy.damage;
+      applyPlayerDamage(enemy.damage);
       state.player.hitFlash = 1;
       state.flash = 0.35;
       audio.playerHurt();
@@ -885,6 +957,15 @@ function update(dt) {
   }
 }
 
+function applyPlayerDamage(amount) {
+  if (state.player.shield > 0) {
+    const blocked = Math.min(state.player.shield, amount);
+    state.player.shield -= blocked;
+    amount -= blocked;
+  }
+  state.player.hp -= amount;
+}
+
 function drawBackground() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
   if (assets.bg.complete && assets.bg.naturalWidth > 0) {
@@ -931,7 +1012,7 @@ function drawPlayer() {
     ctx.filter = "brightness(0.86) saturate(0.72) contrast(0.97)";
     ctx.globalAlpha = 0.96;
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(assets.hero, -58, -94, 116, 116);
+    ctx.drawImage(assets.hero, -76, -126, 152, 152);
     ctx.filter = "none";
     if (player.muzzleTimer > 0) {
       ctx.fillStyle = "rgba(255, 213, 128, 0.9)";
@@ -976,10 +1057,14 @@ function drawEnemies() {
 
     const enemyImage = assets.enemy;
     if (enemyImage.complete && enemyImage.naturalWidth > 0) {
-      const size = 102 * enemy.scale;
+      const size = 118 * enemy.scale;
       const filter = enemy.variant === "sprinter"
         ? "brightness(0.86) saturate(0.82) hue-rotate(180deg) contrast(1)"
-        : "brightness(0.8) saturate(0.64) contrast(0.94)";
+        : enemy.variant === "crawler"
+          ? "brightness(0.75) saturate(0.55) hue-rotate(120deg) contrast(0.9)"
+          : enemy.variant === "brute" || enemy.variant === "boss"
+            ? "brightness(0.88) saturate(0.78) hue-rotate(300deg) contrast(1.04)"
+            : "brightness(0.8) saturate(0.64) contrast(0.94)";
       ctx.filter = filter;
       ctx.globalAlpha = 0.94;
       ctx.imageSmoothingEnabled = true;
@@ -1019,7 +1104,7 @@ function drawCompanions() {
     if (assets.hero.complete && assets.hero.naturalWidth > 0) {
       ctx.globalAlpha = 0.88;
       ctx.filter = "brightness(0.9) saturate(0.6) contrast(0.96)";
-      ctx.drawImage(assets.hero, -24, -34, 48, 48);
+      ctx.drawImage(assets.hero, -30, -42, 60, 60);
       ctx.filter = "none";
     }
     ctx.restore();
@@ -1102,12 +1187,15 @@ function drawHud() {
     ctx.font = "600 12px 'Space Grotesk'";
     ctx.fillStyle = "rgba(255,255,255,0.72)";
     ctx.fillText(`Lv ${state.level}  ${state.time.toFixed(0)}s`, 30, 62);
-    bar(WIDTH - 184, 28, 118, 10, player.hp / player.maxHp, "#ff6b6b");
-    bar(WIDTH - 184, 48, 118, 8, state.xp / state.nextXp, "#72efdd");
+    bar(WIDTH - 184, 26, 118, 10, player.hp / player.maxHp, "#ff6b6b");
+    bar(WIDTH - 184, 42, 118, 8, state.xp / state.nextXp, "#72efdd");
+    if (player.shield > 0) {
+      bar(WIDTH - 184, 56, 118, 6, player.shield / 60, "#bde0fe");
+    }
     ctx.fillStyle = "#fff";
     ctx.font = "600 11px 'Space Grotesk'";
-    ctx.fillText("HP", WIDTH - 58, 37);
-    ctx.fillText("XP", WIDTH - 58, 56);
+    ctx.fillText("HP", WIDTH - 58, 35);
+    ctx.fillText("XP", WIDTH - 58, 50);
 
     if (!audio.ready || audio.muted || state.audioHintTimer > 0) {
       roundRect(WIDTH * 0.5 - 120, HEIGHT - 46, 240, 30, 15, "rgba(10, 14, 20, 0.74)", "rgba(255,255,255,0.08)");
@@ -1142,6 +1230,9 @@ function drawHud() {
 
   bar(356, 34, 236, 14, player.hp / player.maxHp, "#ff6b6b");
   bar(356, 60, 236, 10, state.xp / state.nextXp, "#72efdd");
+  if (player.shield > 0) {
+    bar(356, 78, 236, 8, player.shield / 60, "#bde0fe");
+  }
   ctx.fillStyle = "#fff";
   ctx.font = "600 13px 'Space Grotesk'";
   ctx.fillText("HP", 602, 46);

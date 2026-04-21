@@ -185,9 +185,14 @@ canvas {
 }
 
 @media (max-width: 640px) {
+  body {
+    min-height: 100svh;
+    overflow-x: hidden;
+  }
+
   .shell {
-    width: min(100vw - 16px, 1180px);
-    padding: 8px 0 12px;
+    width: 100vw;
+    padding: 6px 8px 10px;
   }
 
   .hud-panel {
@@ -228,5 +233,11 @@ canvas {
 
   .game-wrap {
     border-radius: 16px;
+    max-height: calc(100svh - 104px);
+  }
+
+  canvas {
+    max-height: calc(100svh - 104px);
+    object-fit: contain;
   }
 }
