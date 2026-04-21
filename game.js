@@ -328,6 +328,7 @@ function createState() {
       projectilesPerShot: 1,
       spread: 0.1,
       damage: 2,
+      weaponType: "bullet",
       pierce: 0,
       maxHp: 100,
       hp: 100,
@@ -468,15 +469,19 @@ function fireShot() {
 
   for (let i = 0; i < count; i += 1) {
     const offset = (i - center) * player.spread;
+    const isLaser = player.weaponType === "laser";
+    const isPlasma = player.weaponType === "plasma";
+    const isSpread = player.weaponType === "spread";
     state.bullets.push({
       x: player.x,
       y: player.y - player.h * 0.5,
-      r: 5,
-      speed: player.projectileSpeed,
-      vx: offset * player.projectileSpeed,
-      vy: -player.projectileSpeed,
-      damage: player.damage,
-      pierce: player.pierce,
+      r: isLaser ? 3 : isPlasma ? 8 : 5,
+      speed: isLaser ? player.projectileSpeed * 1.35 : isPlasma ? player.projectileSpeed * 0.72 : player.projectileSpeed,
+      vx: offset * player.projectileSpeed * (isSpread ? 1.45 : 1),
+      vy: -(isLaser ? player.projectileSpeed * 1.35 : isPlasma ? player.projectileSpeed * 0.72 : player.projectileSpeed),
+      damage: isPlasma ? player.damage + 1 : player.damage,
+      pierce: isLaser ? player.pierce + 2 : player.pierce,
+      type: player.weaponType,
     });
   }
 
@@ -517,6 +522,7 @@ function fireCompanionShot(companion) {
     vy,
     damage: Math.max(1, Math.floor(state.player.damage * 0.7)),
     pierce: 0,
+    type: state.player.weaponType === "laser" ? "laser" : "bullet",
   });
 }
 
@@ -616,6 +622,34 @@ function createGateOption() {
       apply: () => {
         state.player.fireRate = Math.max(0.08, state.player.fireRate - 0.015);
         addFloatingText("FIRE UP", state.player.x, state.player.y - 60, "#caffbf");
+      },
+    },
+    {
+      label: "LASER",
+      tier: 2,
+      color: "#80ffdb",
+      apply: () => {
+        state.player.weaponType = "laser";
+        addFloatingText("WEAPON: LASER", state.player.x, state.player.y - 60, "#80ffdb");
+      },
+    },
+    {
+      label: "PLASMA",
+      tier: 2,
+      color: "#bdb2ff",
+      apply: () => {
+        state.player.weaponType = "plasma";
+        addFloatingText("WEAPON: PLASMA", state.player.x, state.player.y - 60, "#bdb2ff");
+      },
+    },
+    {
+      label: "SPREAD",
+      tier: 1,
+      color: "#ffc6ff",
+      apply: () => {
+        state.player.weaponType = "spread";
+        state.player.spread = Math.max(state.player.spread, 0.16);
+        addFloatingText("WEAPON: SPREAD", state.player.x, state.player.y - 60, "#ffc6ff");
       },
     },
     {
@@ -1012,7 +1046,7 @@ function drawPlayer() {
     ctx.filter = "brightness(0.86) saturate(0.72) contrast(0.97)";
     ctx.globalAlpha = 0.96;
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(assets.hero, -76, -126, 152, 152);
+    ctx.drawImage(assets.hero, -92, -152, 184, 184);
     ctx.filter = "none";
     if (player.muzzleTimer > 0) {
       ctx.fillStyle = "rgba(255, 213, 128, 0.9)";
@@ -1104,7 +1138,7 @@ function drawCompanions() {
     if (assets.hero.complete && assets.hero.naturalWidth > 0) {
       ctx.globalAlpha = 0.88;
       ctx.filter = "brightness(0.9) saturate(0.6) contrast(0.96)";
-      ctx.drawImage(assets.hero, -30, -42, 60, 60);
+      ctx.drawImage(assets.hero, -36, -50, 72, 72);
       ctx.filter = "none";
     }
     ctx.restore();
@@ -1113,14 +1147,31 @@ function drawCompanions() {
 
 function drawBullets() {
   for (const bullet of state.bullets) {
-    const glow = ctx.createRadialGradient(bullet.x, bullet.y, 1, bullet.x, bullet.y, 10);
-    glow.addColorStop(0, "rgba(255, 228, 148, 0.95)");
-    glow.addColorStop(1, "rgba(255, 162, 79, 0)");
+    if (bullet.type === "laser") {
+      ctx.strokeStyle = "rgba(128, 255, 219, 0.9)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(bullet.x, bullet.y + 16);
+      ctx.lineTo(bullet.x - bullet.vx * 0.03, bullet.y + 44);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.72)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(bullet.x, bullet.y + 8);
+      ctx.lineTo(bullet.x - bullet.vx * 0.02, bullet.y + 36);
+      ctx.stroke();
+      continue;
+    }
+
+    const color = bullet.type === "plasma" ? "189, 178, 255" : bullet.type === "spread" ? "255, 198, 255" : "255, 228, 148";
+    const glow = ctx.createRadialGradient(bullet.x, bullet.y, 1, bullet.x, bullet.y, bullet.type === "plasma" ? 18 : 10);
+    glow.addColorStop(0, `rgba(${color}, 0.95)`);
+    glow.addColorStop(1, `rgba(${color}, 0)`);
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(bullet.x, bullet.y, 10, 0, Math.PI * 2);
+    ctx.arc(bullet.x, bullet.y, bullet.type === "plasma" ? 18 : 10, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#ffe8a3";
+    ctx.fillStyle = bullet.type === "plasma" ? "#bdb2ff" : bullet.type === "spread" ? "#ffc6ff" : "#ffe8a3";
     ctx.beginPath();
     ctx.arc(bullet.x, bullet.y, bullet.r, 0, Math.PI * 2);
     ctx.fill();
@@ -1242,9 +1293,9 @@ function drawHud() {
   ctx.font = "700 17px 'Space Grotesk'";
   ctx.fillText("WEAPON", WIDTH - 222, 42);
   ctx.font = "700 14px 'Space Grotesk'";
-  ctx.fillText(`Damage ${player.damage}`, WIDTH - 222, 68);
-  ctx.fillText(`Burst ${player.projectilesPerShot}`, WIDTH - 222, 90);
-  ctx.fillText(`Fire ${player.fireRate.toFixed(2)}s`, WIDTH - 222, 112);
+    ctx.fillText(`${player.weaponType.toUpperCase()} ${player.damage}`, WIDTH - 222, 68);
+    ctx.fillText(`Burst ${player.projectilesPerShot}`, WIDTH - 222, 90);
+    ctx.fillText(`Fire ${player.fireRate.toFixed(2)}s`, WIDTH - 222, 112);
 
   ctx.font = "600 12px 'Space Grotesk'";
   ctx.fillStyle = "rgba(255,255,255,0.7)";
