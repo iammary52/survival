@@ -300,6 +300,7 @@ function createState() {
     bullets: [],
     gates: [],
     companions: [],
+    beams: [],
     particles: [],
     floatingTexts: [],
     xp: 0,
@@ -464,23 +465,30 @@ function spawnEnemy(kind = "normal") {
 
 function fireShot() {
   const player = state.player;
+  if (player.weaponType === "laser") {
+    fireLaser(player.x, player.y - player.h * 0.5, player.damage, player.projectilesPerShot);
+    audio.shot();
+    state.flash = 0.14;
+    state.player.muzzleTimer = 0.08;
+    return;
+  }
+
   const count = player.projectilesPerShot;
   const center = (count - 1) / 2;
 
   for (let i = 0; i < count; i += 1) {
     const offset = (i - center) * player.spread;
-    const isLaser = player.weaponType === "laser";
     const isPlasma = player.weaponType === "plasma";
     const isSpread = player.weaponType === "spread";
     state.bullets.push({
       x: player.x,
       y: player.y - player.h * 0.5,
-      r: isLaser ? 3 : isPlasma ? 8 : 5,
-      speed: isLaser ? player.projectileSpeed * 1.35 : isPlasma ? player.projectileSpeed * 0.72 : player.projectileSpeed,
+      r: isPlasma ? 8 : 5,
+      speed: isPlasma ? player.projectileSpeed * 0.72 : player.projectileSpeed,
       vx: offset * player.projectileSpeed * (isSpread ? 1.45 : 1),
-      vy: -(isLaser ? player.projectileSpeed * 1.35 : isPlasma ? player.projectileSpeed * 0.72 : player.projectileSpeed),
+      vy: -(isPlasma ? player.projectileSpeed * 0.72 : player.projectileSpeed),
       damage: isPlasma ? player.damage + 1 : player.damage,
-      pierce: isLaser ? player.pierce + 2 : player.pierce,
+      pierce: player.pierce,
       type: player.weaponType,
     });
   }
@@ -502,8 +510,49 @@ function fireShot() {
   state.player.muzzleTimer = 0.08;
 }
 
+function fireLaser(x, y, damage, lanes = 1) {
+  const offsets = [];
+  const count = Math.min(4, lanes);
+  const center = (count - 1) / 2;
+  for (let i = 0; i < count; i += 1) {
+    offsets.push((i - center) * 24);
+  }
+
+  for (const offset of offsets) {
+    const beamX = x + offset;
+    state.beams.push({ x: beamX, y1: 18, y2: y, life: 0.1, width: 8 });
+    for (const enemy of state.enemies) {
+      const horizontal = Math.abs(enemy.x - beamX) < enemy.w * 0.65 + 10;
+      const vertical = enemy.y < y && enemy.y > 0;
+      if (horizontal && vertical) {
+        enemy.hp -= damage;
+        enemy.hitTimer = 0.16;
+        spawnHitParticles(enemy.x, enemy.y, enemy.color);
+      }
+    }
+  }
+}
+
+function spawnHitParticles(x, y, color) {
+  for (let p = 0; p < 5; p += 1) {
+    state.particles.push({
+      x,
+      y,
+      vx: rand(-90, 90),
+      vy: rand(-90, 60),
+      life: rand(0.12, 0.24),
+      size: rand(2, 4),
+      color,
+    });
+  }
+}
+
 function fireCompanionShot(companion) {
   const target = findNearestEnemy(companion.x, companion.y);
+  if (state.player.weaponType === "laser") {
+    fireLaser(companion.x, companion.y - 20, Math.max(1, Math.floor(state.player.damage * 0.55)), 1);
+    return;
+  }
   let vx = 0;
   let vy = -state.player.projectileSpeed * 0.92;
   if (target) {
@@ -522,7 +571,7 @@ function fireCompanionShot(companion) {
     vy,
     damage: Math.max(1, Math.floor(state.player.damage * 0.7)),
     pierce: 0,
-    type: state.player.weaponType === "laser" ? "laser" : "bullet",
+    type: "bullet",
   });
 }
 
@@ -853,6 +902,14 @@ function update(dt) {
     bullet.y += bullet.vy * dt;
   }
 
+  for (let i = state.beams.length - 1; i >= 0; i -= 1) {
+    const beam = state.beams[i];
+    beam.life -= dt;
+    if (beam.life <= 0) {
+      state.beams.splice(i, 1);
+    }
+  }
+
   for (const enemy of state.enemies) {
     enemy.y += enemy.speed * dt;
     enemy.frame += dt * (2 + enemy.speed * 0.01);
@@ -886,17 +943,7 @@ function update(dt) {
       enemy.hitTimer = 0.12;
       bullet.pierce -= 1;
 
-      for (let p = 0; p < 5; p += 1) {
-        state.particles.push({
-          x: bullet.x,
-          y: bullet.y,
-          vx: rand(-90, 90),
-          vy: rand(-90, 60),
-          life: rand(0.12, 0.24),
-          size: rand(2, 4),
-          color: enemy.color,
-        });
-      }
+      spawnHitParticles(bullet.x, bullet.y, enemy.color);
 
       if (enemy.hp <= 0) {
         gainXp(enemy.value, enemy.x, enemy.y);
@@ -1146,23 +1193,23 @@ function drawCompanions() {
 }
 
 function drawBullets() {
-  for (const bullet of state.bullets) {
-    if (bullet.type === "laser") {
-      ctx.strokeStyle = "rgba(128, 255, 219, 0.9)";
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(bullet.x, bullet.y + 16);
-      ctx.lineTo(bullet.x - bullet.vx * 0.03, bullet.y + 44);
-      ctx.stroke();
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.72)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(bullet.x, bullet.y + 8);
-      ctx.lineTo(bullet.x - bullet.vx * 0.02, bullet.y + 36);
-      ctx.stroke();
-      continue;
-    }
+  for (const beam of state.beams) {
+    const alpha = Math.max(0, beam.life / 0.1);
+    ctx.strokeStyle = `rgba(128, 255, 219, ${0.28 * alpha})`;
+    ctx.lineWidth = beam.width + 10;
+    ctx.beginPath();
+    ctx.moveTo(beam.x, beam.y2);
+    ctx.lineTo(beam.x, beam.y1);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(220, 255, 248, ${0.92 * alpha})`;
+    ctx.lineWidth = beam.width * 0.45;
+    ctx.beginPath();
+    ctx.moveTo(beam.x, beam.y2);
+    ctx.lineTo(beam.x, beam.y1);
+    ctx.stroke();
+  }
 
+  for (const bullet of state.bullets) {
     const color = bullet.type === "plasma" ? "189, 178, 255" : bullet.type === "spread" ? "255, 198, 255" : "255, 228, 148";
     const glow = ctx.createRadialGradient(bullet.x, bullet.y, 1, bullet.x, bullet.y, bullet.type === "plasma" ? 18 : 10);
     glow.addColorStop(0, `rgba(${color}, 0.95)`);
