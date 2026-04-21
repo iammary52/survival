@@ -477,19 +477,21 @@ function fireShot() {
   const center = (count - 1) / 2;
 
   if (player.weaponType === "flame") {
+    const flameRange = clamp(250 + state.level * 28 + count * 42, 280, HEIGHT * 0.5);
     for (let i = 0; i < Math.max(5, count * 4); i += 1) {
       const spread = rand(-0.42, 0.42) + (i - center) * 0.02;
+      const ySpeed = player.projectileSpeed * rand(0.42, 0.58);
       state.bullets.push({
         x: player.x + rand(-8, 8),
         y: player.y - player.h * 0.5,
         r: rand(7, 13),
-        speed: player.projectileSpeed * rand(0.28, 0.46),
+        speed: ySpeed,
         vx: spread * player.projectileSpeed,
-        vy: -player.projectileSpeed * rand(0.28, 0.46),
+        vy: -ySpeed,
         damage: Math.max(1, Math.ceil(player.damage * 0.55)),
         pierce: 0,
         type: "flame",
-        life: rand(0.28, 0.48),
+        life: (flameRange / ySpeed) * rand(0.86, 1.08),
       });
     }
     audio.shot();
@@ -533,7 +535,7 @@ function fireShot() {
 
 function fireLaser(x, y, damage, lanes = 1) {
   const offsets = [];
-  const count = Math.min(4, lanes);
+  const count = Math.min(5, lanes);
   const center = (count - 1) / 2;
   for (let i = 0; i < count; i += 1) {
     offsets.push((i - center) * 24);
