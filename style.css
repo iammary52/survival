@@ -187,24 +187,46 @@ canvas {
 @media (max-width: 640px) {
   .shell {
     width: min(100vw - 16px, 1180px);
-    padding: 12px 0 20px;
+    padding: 8px 0 12px;
   }
 
   .hud-panel {
-    gap: 12px;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .eyebrow {
+    display: none;
+  }
+
+  h1 {
+    font-size: 1.55rem;
+    line-height: 1;
   }
 
   .subcopy {
-    font-size: 0.92rem;
+    display: none;
   }
 
   .tips {
-    padding: 12px 14px;
-    font-size: 0.92rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 8px 10px;
+    font-size: 0.78rem;
+    border-radius: 14px;
+  }
+
+  .tips p {
+    margin: 0;
+  }
+
+  .tips span {
+    min-width: auto;
+    margin-right: 4px;
   }
 
   .game-wrap {
-    border-radius: 20px;
+    border-radius: 16px;
   }
 }

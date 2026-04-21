@@ -307,6 +307,7 @@ function createState() {
     nextXp: 18,
     enemyTimer: 0,
     gateTimer: 5,
+    nextBossTime: 45,
     difficulty: 1,
     gameOver: false,
     audioHintTimer: 4,
@@ -352,12 +353,12 @@ function resetGame() {
   audio.musicClock = 0;
 }
 
-function spawnEnemy() {
+function spawnEnemy(kind = "normal") {
   const t = state.time;
   const intensity = 1 + Math.min(3.2, t / 38);
   const eliteRoll = Math.random();
   const fastType = eliteRoll < 0.22 + intensity * 0.03;
-  const tankType = eliteRoll > 0.86;
+  const tankType = kind === "boss" || eliteRoll > 0.86;
   const altType = Math.random() < 0.34;
 
   const base = {
@@ -375,6 +376,7 @@ function spawnEnemy() {
     frame: rand(0, Math.PI * 2),
     hitTimer: 0,
     sprite: "enemy",
+    kind,
     variant: altType ? "sprinter" : "runner",
   };
 
@@ -407,6 +409,21 @@ function spawnEnemy() {
     base.value += 2;
     base.color = "#7cc6fe";
     base.scale *= 0.88;
+  }
+
+  if (kind === "boss") {
+    base.x = WIDTH * 0.5;
+    base.y = -70;
+    base.w = 64;
+    base.h = 72;
+    base.speed = 52 + intensity * 8;
+    base.hp = 26 + Math.floor(intensity * 9);
+    base.maxHp = base.hp;
+    base.damage = 24;
+    base.value = 36;
+    base.color = "#ffd166";
+    base.scale = 1.85;
+    base.variant = "boss";
   }
 
   state.enemies.push(base);
@@ -502,9 +519,11 @@ function syncCompanions() {
 }
 
 function createGateOption() {
+  const powerTier = state.time < 35 ? 1 : state.time < 75 ? 2 : 3;
   const optionPool = [
     {
       label: "+1",
+      tier: 1,
       color: "#72efdd",
       apply: () => {
         state.player.projectilesPerShot = Math.min(5, state.player.projectilesPerShot + 1);
@@ -513,14 +532,16 @@ function createGateOption() {
     },
     {
       label: "x2",
+      tier: 3,
       color: "#ffd166",
       apply: () => {
-        state.player.damage = Math.min(10, state.player.damage * 2);
+        state.player.damage = Math.min(10, Math.max(state.player.damage + 1, state.player.damage * 2));
         addFloatingText("DAMAGE x2", state.player.x, state.player.y - 60, "#ffd166");
       },
     },
     {
       label: "SPD",
+      tier: 1,
       color: "#a0c4ff",
       apply: () => {
         state.player.maxSpeed += 30;
@@ -530,6 +551,7 @@ function createGateOption() {
     },
     {
       label: "HP+",
+      tier: 1,
       color: "#ffadad",
       apply: () => {
         state.player.hp = clamp(state.player.hp + 18, 0, state.player.maxHp);
@@ -538,6 +560,7 @@ function createGateOption() {
     },
     {
       label: "FIRE",
+      tier: 2,
       color: "#caffbf",
       apply: () => {
         state.player.fireRate = Math.max(0.08, state.player.fireRate - 0.015);
@@ -546,6 +569,7 @@ function createGateOption() {
     },
     {
       label: "ALLY",
+      tier: 2,
       color: "#f1c0e8",
       apply: () => {
         state.player.companionCount = Math.min(4, (state.player.companionCount || 0) + 1);
@@ -555,6 +579,7 @@ function createGateOption() {
     },
     {
       label: "ALLY x2",
+      tier: 3,
       color: "#ff99c8",
       apply: () => {
         state.player.companionCount = Math.min(4, Math.max(1, (state.player.companionCount || 0) * 2));
@@ -564,7 +589,8 @@ function createGateOption() {
     },
   ];
 
-  return optionPool[randInt(0, optionPool.length - 1)];
+  const choices = optionPool.filter((option) => option.tier <= powerTier);
+  return choices[randInt(0, choices.length - 1)];
 }
 
 function spawnGatePair() {
@@ -702,6 +728,12 @@ function update(dt) {
     spawnEnemy();
     const baseRate = 1.08 - Math.min(0.44, state.time * 0.006);
     state.enemyTimer = rand(baseRate * 0.65, baseRate);
+  }
+
+  if (state.time >= state.nextBossTime) {
+    spawnEnemy("boss");
+    state.nextBossTime += 55;
+    addFloatingText("BOSS INCOMING", WIDTH * 0.5, 148, "#ffd166");
   }
 
   state.gateTimer -= dt;
@@ -970,7 +1002,7 @@ function drawEnemies() {
     ctx.fillRect(-enemy.w * 0.28, -enemy.h * 0.18, enemy.w * 0.56, 8);
     ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.fillRect(-enemy.w * 0.5, -enemy.h * 0.64, enemy.w, 6);
-    ctx.fillStyle = "#72efdd";
+    ctx.fillStyle = enemy.kind === "boss" ? "#ffd166" : "#72efdd";
     ctx.fillRect(-enemy.w * 0.5, -enemy.h * 0.64, enemy.w * (enemy.hp / enemy.maxHp), 6);
     ctx.restore();
   }
@@ -1059,6 +1091,40 @@ function drawFloatingTexts() {
 
 function drawHud() {
   const { player } = state;
+  const compact = window.innerWidth <= 640;
+
+  if (compact) {
+    roundRect(16, 16, 182, 58, 16, "rgba(10, 14, 20, 0.7)", "rgba(255,255,255,0.08)");
+    roundRect(WIDTH - 198, 16, 182, 58, 16, "rgba(10, 14, 20, 0.7)", "rgba(255,255,255,0.08)");
+    ctx.fillStyle = "#f7fbff";
+    ctx.font = "700 17px 'Space Grotesk'";
+    ctx.fillText(`${Math.floor(state.score)}`, 30, 40);
+    ctx.font = "600 12px 'Space Grotesk'";
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.fillText(`Lv ${state.level}  ${state.time.toFixed(0)}s`, 30, 62);
+    bar(WIDTH - 184, 28, 118, 10, player.hp / player.maxHp, "#ff6b6b");
+    bar(WIDTH - 184, 48, 118, 8, state.xp / state.nextXp, "#72efdd");
+    ctx.fillStyle = "#fff";
+    ctx.font = "600 11px 'Space Grotesk'";
+    ctx.fillText("HP", WIDTH - 58, 37);
+    ctx.fillText("XP", WIDTH - 58, 56);
+
+    if (!audio.ready || audio.muted || state.audioHintTimer > 0) {
+      roundRect(WIDTH * 0.5 - 120, HEIGHT - 46, 240, 30, 15, "rgba(10, 14, 20, 0.74)", "rgba(255,255,255,0.08)");
+      ctx.fillStyle = "#f7fbff";
+      ctx.textAlign = "center";
+      ctx.font = "600 12px 'Space Grotesk'";
+      ctx.fillText(audio.muted ? "M: sound on" : "Tap to enable sound", WIDTH * 0.5, HEIGHT - 27);
+      ctx.textAlign = "start";
+    }
+
+    if (state.flash > 0) {
+      ctx.fillStyle = `rgba(255, 120, 95, ${state.flash * 0.18})`;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    }
+    return;
+  }
+
   roundRect(18, 18, 302, 112, 22, "rgba(10, 14, 20, 0.72)", "rgba(255,255,255,0.08)");
   roundRect(WIDTH - 242, 18, 224, 112, 22, "rgba(10, 14, 20, 0.72)", "rgba(255,255,255,0.08)");
   roundRect(336, 18, 308, 70, 22, "rgba(10, 14, 20, 0.72)", "rgba(255,255,255,0.08)");
