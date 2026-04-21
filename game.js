@@ -700,15 +700,6 @@ function createGateOption() {
       },
     },
     {
-      label: "FIRE",
-      tier: 2,
-      color: "#caffbf",
-      apply: () => {
-        state.player.fireRate = Math.max(0.08, state.player.fireRate - 0.015);
-        addFloatingText("FIRE UP", state.player.x, state.player.y - 60, "#caffbf");
-      },
-    },
-    {
       label: "LASER",
       tier: 2,
       color: "#80ffdb",
@@ -727,7 +718,7 @@ function createGateOption() {
         state.player.weaponType = "flame";
         state.player.fireRate = Math.max(0.075, state.player.fireRate - 0.02);
         state.player.damage += 1;
-        addFloatingText("FLAMER + FIRE", state.player.x, state.player.y - 60, "#ffb703");
+        addFloatingText("FLAMER + POWER", state.player.x, state.player.y - 60, "#ffb703");
       },
     },
     {
@@ -1320,31 +1311,43 @@ function drawFloatingTexts() {
 function drawHud() {
   const { player } = state;
   const compact = window.innerWidth <= 640;
+  const weaponName = {
+    bullet: "RIFLE",
+    laser: "LASER",
+    flame: "FLAMER",
+    spread: "SPREAD",
+  }[player.weaponType] || player.weaponType.toUpperCase();
 
   if (compact) {
-    roundRect(16, 16, 206, 76, 16, "rgba(10, 14, 20, 0.7)", "rgba(255,255,255,0.08)");
-    roundRect(WIDTH - 222, 16, 206, 76, 16, "rgba(10, 14, 20, 0.7)", "rgba(255,255,255,0.08)");
+    roundRect(14, 14, 198, 92, 18, "rgba(10, 14, 20, 0.78)", "rgba(255,255,255,0.1)");
+    roundRect(WIDTH - 306, 14, 292, 92, 18, "rgba(10, 14, 20, 0.78)", "rgba(255,255,255,0.1)");
     ctx.fillStyle = "#f7fbff";
-    ctx.font = "700 17px 'Space Grotesk'";
-    ctx.fillText(`${Math.floor(state.score)}`, 30, 40);
-    ctx.font = "600 12px 'Space Grotesk'";
+    ctx.font = "800 28px 'Space Grotesk'";
+    ctx.fillText(`${Math.floor(state.score)}`, 30, 48);
+    ctx.font = "700 15px 'Space Grotesk'";
     ctx.fillStyle = "rgba(255,255,255,0.72)";
-    ctx.fillText(`Lv ${state.level}  ${state.time.toFixed(0)}s`, 30, 62);
+    ctx.fillText(`LV ${state.level}`, 30, 74);
+    ctx.fillText(`${state.time.toFixed(0)}s`, 100, 74);
+
     ctx.fillStyle = "#f7fbff";
-    ctx.font = "700 12px 'Space Grotesk'";
-    ctx.fillText(`${player.weaponType.toUpperCase()}  D${player.damage} B${player.projectilesPerShot}`, 30, 82);
-    ctx.font = "600 11px 'Space Grotesk'";
+    ctx.font = "800 18px 'Space Grotesk'";
+    ctx.fillText(weaponName, WIDTH - 288, 42);
+    ctx.font = "800 15px 'Space Grotesk'";
+    ctx.fillText(`ATK ${player.damage}`, WIDTH - 288, 72);
+    ctx.fillText(`SHOT ${player.projectilesPerShot}`, WIDTH - 206, 72);
+    ctx.fillText(`ALLY ${player.companionCount}`, WIDTH - 112, 72);
+    ctx.font = "700 13px 'Space Grotesk'";
     ctx.fillStyle = "rgba(255,255,255,0.72)";
-    ctx.fillText(`F${player.fireRate.toFixed(2)} P${player.pierce} A${player.companionCount}`, 128, 82);
-    bar(WIDTH - 208, 26, 142, 10, player.hp / player.maxHp, "#ff6b6b");
-    bar(WIDTH - 208, 42, 142, 8, state.xp / state.nextXp, "#72efdd");
+    ctx.fillText(`PIERCE ${player.pierce}`, WIDTH - 288, 92);
+    bar(WIDTH - 154, 86, 112, 8, state.xp / state.nextXp, "#72efdd");
+    bar(WIDTH - 154, 28, 112, 12, player.hp / player.maxHp, "#ff6b6b");
     if (player.shield > 0) {
-      bar(WIDTH - 208, 56, 142, 6, player.shield / 60, "#bde0fe");
+      bar(WIDTH - 154, 46, 112, 7, player.shield / 60, "#bde0fe");
     }
     ctx.fillStyle = "#fff";
-    ctx.font = "600 11px 'Space Grotesk'";
-    ctx.fillText("HP", WIDTH - 58, 35);
-    ctx.fillText("XP", WIDTH - 58, 50);
+    ctx.font = "800 12px 'Space Grotesk'";
+    ctx.fillText("HP", WIDTH - 36, 38);
+    ctx.fillText("XP", WIDTH - 36, 94);
 
     if (!audio.ready || audio.muted || state.audioHintTimer > 0) {
       roundRect(WIDTH * 0.5 - 120, HEIGHT - 46, 240, 30, 15, "rgba(10, 14, 20, 0.74)", "rgba(255,255,255,0.08)");
@@ -1391,7 +1394,7 @@ function drawHud() {
   ctx.font = "700 17px 'Space Grotesk'";
   ctx.fillText("WEAPON", WIDTH - 222, 42);
   ctx.font = "700 14px 'Space Grotesk'";
-    ctx.fillText(`${player.weaponType.toUpperCase()} ${player.damage}`, WIDTH - 222, 68);
+    ctx.fillText(`${weaponName} ${player.damage}`, WIDTH - 222, 68);
     ctx.fillText(`Burst ${player.projectilesPerShot}`, WIDTH - 222, 90);
     ctx.fillText(`Fire ${player.fireRate.toFixed(2)}s`, WIDTH - 222, 112);
 
