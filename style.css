@@ -140,7 +140,26 @@ canvas {
   color: var(--muted);
 }
 
+.start-card {
+  max-width: 860px;
+}
+
+.start-kicker {
+  margin: 0 0 8px;
+  color: #ffd6a5;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+
 .choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.weapon-choices {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 14px;
@@ -157,6 +176,27 @@ canvas {
   color: var(--text);
 }
 
+.weapon-choice {
+  min-height: 132px;
+  text-align: left;
+}
+
+.weapon-choice strong {
+  font-size: 1.28rem;
+}
+
+.weapon-choice span {
+  display: block;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.restart-choice {
+  margin-top: 16px;
+  min-width: 220px;
+  font-weight: 700;
+}
+
 .choice:hover {
   transform: translateY(-4px);
   border-color: rgba(244, 162, 97, 0.6);
@@ -169,6 +209,11 @@ canvas {
   color: var(--text);
 }
 
+.start-help {
+  margin-bottom: 0;
+  font-size: 0.92rem;
+}
+
 @media (max-width: 840px) {
   .hud-panel {
     flex-direction: column;
@@ -179,7 +224,8 @@ canvas {
     min-width: 0;
   }
 
-  .choices {
+  .choices,
+  .weapon-choices {
     grid-template-columns: 1fr;
   }
 }
@@ -239,5 +285,36 @@ canvas {
   canvas {
     max-height: calc(100svh - 104px);
     object-fit: contain;
+  }
+
+  .overlay {
+    padding: 12px;
+  }
+
+  .card {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .card h2 {
+    font-size: 1.55rem;
+  }
+
+  .weapon-choices {
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .weapon-choice {
+    min-height: 92px;
+    padding: 14px;
+  }
+
+  .weapon-choice strong {
+    font-size: 1.16rem;
+  }
+
+  .weapon-choice span {
+    font-size: 0.88rem;
   }
 }

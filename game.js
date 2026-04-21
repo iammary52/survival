@@ -21,6 +21,40 @@ const assets = {
   bg: loadImage("assets/bg-mobile-highway-v1.png"),
 };
 
+const starterWeapons = {
+  rifle: {
+    name: "RIFLE",
+    desc: "가장 안정적인 기본 총기. 초반 생존이 편합니다.",
+    apply: (player) => {
+      player.weaponType = "bullet";
+      player.damage = 2;
+      player.projectilesPerShot = 1;
+      player.pierce = 0;
+    },
+  },
+  laser: {
+    name: "LASER",
+    desc: "직선상의 적을 관통합니다. 조준 라인을 잡는 재미가 큽니다.",
+    apply: (player) => {
+      player.weaponType = "laser";
+      player.damage = 2;
+      player.projectilesPerShot = 1;
+      player.pierce = 1;
+      player.fireRate = 0.18;
+    },
+  },
+  flame: {
+    name: "FLAMER",
+    desc: "짧은 범위를 넓게 태웁니다. 몰려오는 적에게 강합니다.",
+    apply: (player) => {
+      player.weaponType = "flame";
+      player.damage = 2;
+      player.projectilesPerShot = 1;
+      player.fireRate = 0.17;
+    },
+  },
+};
+
 function loadImage(src) {
   const image = new Image();
   image.src = src;
@@ -310,6 +344,9 @@ function createState() {
     gateTimer: 5,
     nextBossTime: 45,
     difficulty: 1,
+    stage: 1,
+    nextStageTime: 30,
+    started: false,
     gameOver: false,
     audioHintTimer: 4,
     flash: 0,
@@ -350,15 +387,26 @@ const audio = new AudioEngine();
 
 function resetGame() {
   state = createState();
-  overlay.className = "overlay hidden";
-  overlay.innerHTML = "";
+  showStartScreen();
   audio.sequenceStep = 0;
   audio.musicClock = 0;
 }
 
+function startGame(weaponKey = "rifle") {
+  state = createState();
+  const starter = starterWeapons[weaponKey] || starterWeapons.rifle;
+  starter.apply(state.player);
+  state.started = true;
+  overlay.className = "overlay hidden";
+  overlay.innerHTML = "";
+  audio.sequenceStep = 0;
+  audio.musicClock = 0;
+  addFloatingText(`${starter.name} READY`, WIDTH * 0.5, HEIGHT - 260, "#ffd6a5");
+}
+
 function spawnEnemy(kind = "normal") {
   const t = state.time;
-  const intensity = 1 + Math.min(3.2, t / 38);
+  const intensity = 1 + Math.min(3.2, t / 44) + (state.stage - 1) * 0.24;
   const eliteRoll = Math.random();
   const fastType = eliteRoll < 0.18 + intensity * 0.025;
   const tankType = kind === "boss" || eliteRoll > 0.86;
@@ -829,6 +877,26 @@ function gainXp(amount, x, y) {
   }
 }
 
+function showStartScreen() {
+  overlay.className = "overlay";
+  overlay.innerHTML = `
+    <div class="card start-card">
+      <p class="start-kicker">STAGE SURVIVAL</p>
+      <h2>무기를 고르고 출발</h2>
+      <p>스테이지가 오를수록 적의 체력, 속도, 출현 빈도가 조금씩 올라갑니다.</p>
+      <div class="weapon-choices">
+        ${Object.entries(starterWeapons).map(([key, weapon]) => `
+          <button class="choice weapon-choice" type="button" data-weapon="${key}">
+            <strong>${weapon.name}</strong>
+            <span>${weapon.desc}</span>
+          </button>
+        `).join("")}
+      </div>
+      <p class="start-help">모바일에서는 원하는 무기를 터치하면 바로 시작합니다.</p>
+    </div>
+  `;
+}
+
 function showGameOver() {
   overlay.className = "overlay";
   overlay.innerHTML = `
@@ -848,13 +916,19 @@ function rectsOverlap(a, b) {
 }
 
 function update(dt) {
-  if (state.gameOver) {
+  if (!state.started || state.gameOver) {
     return;
   }
 
   state.time += dt;
   state.distance += dt * 18;
-  state.difficulty = 1 + Math.min(3.2, state.time / 42);
+  if (state.time >= state.nextStageTime) {
+    state.stage += 1;
+    state.nextStageTime += 30 + Math.min(18, state.stage * 2);
+    state.horizonPulse = 1;
+    addFloatingText(`STAGE ${state.stage}`, WIDTH * 0.5, 168, "#ffd166");
+  }
+  state.difficulty = 1 + Math.min(3.2, state.time / 48) + (state.stage - 1) * 0.28;
 
   const player = state.player;
   const movingLeft = keys.has("ArrowLeft") || keys.has("KeyA");
@@ -914,13 +988,14 @@ function update(dt) {
   state.enemyTimer -= dt;
   if (state.enemyTimer <= 0) {
     spawnEnemy();
-    const baseRate = 1.08 - Math.min(0.44, state.time * 0.006);
-    state.enemyTimer = rand(baseRate * 0.65, baseRate);
+    const baseRate = 1.12 - Math.min(0.5, state.time * 0.0048) - (state.stage - 1) * 0.055;
+    const spawnRate = Math.max(0.42, baseRate);
+    state.enemyTimer = rand(spawnRate * 0.65, spawnRate);
   }
 
   if (state.time >= state.nextBossTime) {
     spawnEnemy("boss");
-    state.nextBossTime += 55;
+    state.nextBossTime += Math.max(38, 58 - state.stage * 3);
     addFloatingText("BOSS INCOMING", WIDTH * 0.5, 148, "#ffd166");
   }
 
@@ -1328,8 +1403,9 @@ function drawHud() {
     ctx.fillText(`${Math.floor(state.score)}`, 30, 48);
     ctx.font = "700 15px 'Space Grotesk'";
     ctx.fillStyle = "rgba(255,255,255,0.72)";
-    ctx.fillText(`LV ${state.level}`, 30, 74);
-    ctx.fillText(`${state.time.toFixed(0)}s`, 100, 74);
+    ctx.fillText(`ST ${state.stage}`, 30, 74);
+    ctx.fillText(`LV ${state.level}`, 96, 74);
+    ctx.fillText(`${state.time.toFixed(0)}s`, 156, 74);
 
     ctx.fillStyle = "#f7fbff";
     ctx.font = "800 18px 'Space Grotesk'";
@@ -1378,8 +1454,8 @@ function drawHud() {
   ctx.fillText(`${Math.floor(state.score)}`, 38, 74);
   ctx.font = "600 14px 'Space Grotesk'";
   ctx.fillStyle = "rgba(255,255,255,0.68)";
-  ctx.fillText(`Level ${state.level}`, 40, 100);
-  ctx.fillText(`Combo x${Math.max(1, state.combo)}`, 126, 100);
+  ctx.fillText(`Stage ${state.stage}`, 40, 100);
+  ctx.fillText(`Level ${state.level}`, 126, 100);
   ctx.fillText(`${state.time.toFixed(1)} sec`, 218, 100);
 
   bar(356, 34, 236, 14, player.hp / player.maxHp, "#ff6b6b");
@@ -1478,6 +1554,20 @@ window.addEventListener("keydown", (event) => {
     audio.setMuted(!audio.muted);
   }
   if (state.gameOver && event.code === "Enter") {
+    resetGame();
+  }
+});
+
+overlay.addEventListener("click", (event) => {
+  const weaponButton = event.target.closest("[data-weapon]");
+  if (weaponButton) {
+    if (!audio.ready) audio.ensureReady();
+    startGame(weaponButton.dataset.weapon);
+    return;
+  }
+
+  const restartButton = event.target.closest("[data-restart]");
+  if (restartButton) {
     resetGame();
   }
 });
