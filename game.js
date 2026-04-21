@@ -476,18 +476,39 @@ function fireShot() {
   const count = player.projectilesPerShot;
   const center = (count - 1) / 2;
 
+  if (player.weaponType === "flame") {
+    for (let i = 0; i < Math.max(5, count * 4); i += 1) {
+      const spread = rand(-0.42, 0.42) + (i - center) * 0.02;
+      state.bullets.push({
+        x: player.x + rand(-8, 8),
+        y: player.y - player.h * 0.5,
+        r: rand(7, 13),
+        speed: player.projectileSpeed * rand(0.28, 0.46),
+        vx: spread * player.projectileSpeed,
+        vy: -player.projectileSpeed * rand(0.28, 0.46),
+        damage: Math.max(1, Math.ceil(player.damage * 0.55)),
+        pierce: 0,
+        type: "flame",
+        life: rand(0.28, 0.48),
+      });
+    }
+    audio.shot();
+    state.flash = 0.12;
+    state.player.muzzleTimer = 0.08;
+    return;
+  }
+
   for (let i = 0; i < count; i += 1) {
     const offset = (i - center) * player.spread;
-    const isPlasma = player.weaponType === "plasma";
     const isSpread = player.weaponType === "spread";
     state.bullets.push({
       x: player.x,
       y: player.y - player.h * 0.5,
-      r: isPlasma ? 8 : 5,
-      speed: isPlasma ? player.projectileSpeed * 0.72 : player.projectileSpeed,
+      r: 5,
+      speed: player.projectileSpeed,
       vx: offset * player.projectileSpeed * (isSpread ? 1.45 : 1),
-      vy: -(isPlasma ? player.projectileSpeed * 0.72 : player.projectileSpeed),
-      damage: isPlasma ? player.damage + 1 : player.damage,
+      vy: -player.projectileSpeed,
+      damage: player.damage,
       pierce: player.pierce,
       type: player.weaponType,
     });
@@ -522,15 +543,16 @@ function fireLaser(x, y, damage, lanes = 1) {
     const beamX = x + offset;
     state.beams.push({ x: beamX, y1: 18, y2: y, life: 0.1, width: 8 });
     for (const enemy of state.enemies) {
-      const horizontal = Math.abs(enemy.x - beamX) < enemy.w * 0.65 + 10;
-      const vertical = enemy.y < y && enemy.y > 0;
+      const horizontal = Math.abs(enemy.x - beamX) < enemy.w * 0.8 + 18;
+      const vertical = enemy.y < y + enemy.h * 0.5 && enemy.y > 0;
       if (horizontal && vertical) {
-        enemy.hp -= damage;
+        enemy.hp -= damage * 2.2;
         enemy.hitTimer = 0.16;
         spawnHitParticles(enemy.x, enemy.y, enemy.color);
       }
     }
   }
+  cleanupDeadEnemies();
 }
 
 function spawnHitParticles(x, y, color) {
@@ -544,6 +566,19 @@ function spawnHitParticles(x, y, color) {
       size: rand(2, 4),
       color,
     });
+  }
+}
+
+function cleanupDeadEnemies() {
+  for (let i = state.enemies.length - 1; i >= 0; i -= 1) {
+    const enemy = state.enemies[i];
+    if (enemy.hp > 0) {
+      continue;
+    }
+    gainXp(enemy.value, enemy.x, enemy.y);
+    audio.enemyDown();
+    state.flash = Math.max(state.flash, 0.12);
+    state.enemies.splice(i, 1);
   }
 }
 
@@ -679,16 +714,20 @@ function createGateOption() {
       color: "#80ffdb",
       apply: () => {
         state.player.weaponType = "laser";
-        addFloatingText("WEAPON: LASER", state.player.x, state.player.y - 60, "#80ffdb");
+        state.player.damage += 1;
+        state.player.pierce = Math.max(state.player.pierce, 1);
+        addFloatingText("LASER + POWER", state.player.x, state.player.y - 60, "#80ffdb");
       },
     },
     {
-      label: "PLASMA",
+      label: "FLAME",
       tier: 2,
-      color: "#bdb2ff",
+      color: "#ffb703",
       apply: () => {
-        state.player.weaponType = "plasma";
-        addFloatingText("WEAPON: PLASMA", state.player.x, state.player.y - 60, "#bdb2ff");
+        state.player.weaponType = "flame";
+        state.player.fireRate = Math.max(0.075, state.player.fireRate - 0.02);
+        state.player.damage += 1;
+        addFloatingText("FLAMER + FIRE", state.player.x, state.player.y - 60, "#ffb703");
       },
     },
     {
@@ -697,8 +736,9 @@ function createGateOption() {
       color: "#ffc6ff",
       apply: () => {
         state.player.weaponType = "spread";
+        state.player.projectilesPerShot = Math.min(5, state.player.projectilesPerShot + 1);
         state.player.spread = Math.max(state.player.spread, 0.16);
-        addFloatingText("WEAPON: SPREAD", state.player.x, state.player.y - 60, "#ffc6ff");
+        addFloatingText("SPREAD +1", state.player.x, state.player.y - 60, "#ffc6ff");
       },
     },
     {
@@ -900,6 +940,10 @@ function update(dt) {
   for (const bullet of state.bullets) {
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
+    if (bullet.life !== undefined) {
+      bullet.life -= dt;
+      bullet.r *= 0.992;
+    }
   }
 
   for (let i = state.beams.length - 1; i >= 0; i -= 1) {
@@ -924,7 +968,7 @@ function update(dt) {
 
   for (let i = state.bullets.length - 1; i >= 0; i -= 1) {
     const bullet = state.bullets[i];
-    if (bullet.y < -20 || bullet.x < -20 || bullet.x > WIDTH + 20) {
+    if (bullet.y < -20 || bullet.x < -20 || bullet.x > WIDTH + 20 || bullet.life <= 0) {
       state.bullets.splice(i, 1);
       continue;
     }
@@ -1210,15 +1254,16 @@ function drawBullets() {
   }
 
   for (const bullet of state.bullets) {
-    const color = bullet.type === "plasma" ? "189, 178, 255" : bullet.type === "spread" ? "255, 198, 255" : "255, 228, 148";
-    const glow = ctx.createRadialGradient(bullet.x, bullet.y, 1, bullet.x, bullet.y, bullet.type === "plasma" ? 18 : 10);
+    const color = bullet.type === "flame" ? "255, 132, 56" : bullet.type === "spread" ? "255, 198, 255" : "255, 228, 148";
+    const radius = bullet.type === "flame" ? bullet.r * 1.8 : 10;
+    const glow = ctx.createRadialGradient(bullet.x, bullet.y, 1, bullet.x, bullet.y, radius);
     glow.addColorStop(0, `rgba(${color}, 0.95)`);
     glow.addColorStop(1, `rgba(${color}, 0)`);
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(bullet.x, bullet.y, bullet.type === "plasma" ? 18 : 10, 0, Math.PI * 2);
+    ctx.arc(bullet.x, bullet.y, radius, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = bullet.type === "plasma" ? "#bdb2ff" : bullet.type === "spread" ? "#ffc6ff" : "#ffe8a3";
+    ctx.fillStyle = bullet.type === "flame" ? "#ff7b00" : bullet.type === "spread" ? "#ffc6ff" : "#ffe8a3";
     ctx.beginPath();
     ctx.arc(bullet.x, bullet.y, bullet.r, 0, Math.PI * 2);
     ctx.fill();
@@ -1277,18 +1322,24 @@ function drawHud() {
   const compact = window.innerWidth <= 640;
 
   if (compact) {
-    roundRect(16, 16, 182, 58, 16, "rgba(10, 14, 20, 0.7)", "rgba(255,255,255,0.08)");
-    roundRect(WIDTH - 198, 16, 182, 58, 16, "rgba(10, 14, 20, 0.7)", "rgba(255,255,255,0.08)");
+    roundRect(16, 16, 206, 76, 16, "rgba(10, 14, 20, 0.7)", "rgba(255,255,255,0.08)");
+    roundRect(WIDTH - 222, 16, 206, 76, 16, "rgba(10, 14, 20, 0.7)", "rgba(255,255,255,0.08)");
     ctx.fillStyle = "#f7fbff";
     ctx.font = "700 17px 'Space Grotesk'";
     ctx.fillText(`${Math.floor(state.score)}`, 30, 40);
     ctx.font = "600 12px 'Space Grotesk'";
     ctx.fillStyle = "rgba(255,255,255,0.72)";
     ctx.fillText(`Lv ${state.level}  ${state.time.toFixed(0)}s`, 30, 62);
-    bar(WIDTH - 184, 26, 118, 10, player.hp / player.maxHp, "#ff6b6b");
-    bar(WIDTH - 184, 42, 118, 8, state.xp / state.nextXp, "#72efdd");
+    ctx.fillStyle = "#f7fbff";
+    ctx.font = "700 12px 'Space Grotesk'";
+    ctx.fillText(`${player.weaponType.toUpperCase()}  D${player.damage} B${player.projectilesPerShot}`, 30, 82);
+    ctx.font = "600 11px 'Space Grotesk'";
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.fillText(`F${player.fireRate.toFixed(2)} P${player.pierce} A${player.companionCount}`, 128, 82);
+    bar(WIDTH - 208, 26, 142, 10, player.hp / player.maxHp, "#ff6b6b");
+    bar(WIDTH - 208, 42, 142, 8, state.xp / state.nextXp, "#72efdd");
     if (player.shield > 0) {
-      bar(WIDTH - 184, 56, 118, 6, player.shield / 60, "#bde0fe");
+      bar(WIDTH - 208, 56, 142, 6, player.shield / 60, "#bde0fe");
     }
     ctx.fillStyle = "#fff";
     ctx.font = "600 11px 'Space Grotesk'";
