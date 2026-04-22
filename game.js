@@ -351,15 +351,14 @@ function createState() {
     flash: 0,
     horizonPulse: 0,
     player: {
-      x: WIDTH * 0.5,
+      x: laneX("left"),
       y: HEIGHT - 190,
       w: 58,
       h: 78,
-      vx: 0,
-      maxSpeed: 560,
-      accel: 2600,
-      drag: 0.82,
-      fireRate: 0.16,
+      lane: "left",
+      switchCooldown: 0,
+      roll: 0,
+      fireRate: 0.14,
       fireTimer: 0,
       projectileSpeed: 760,
       projectilesPerShot: 1,
@@ -370,9 +369,7 @@ function createState() {
       maxHp: 100,
       hp: 100,
       shield: 0,
-      dashCooldown: 0,
       hitFlash: 0,
-      roll: 0,
       muzzleTimer: 0,
       companionCount: 0,
       laneMinX: WIDTH * 0.25,
@@ -412,7 +409,7 @@ function resetWeaponLoadout() {
   player.weaponType = "bullet";
   player.damage = 2;
   player.projectilesPerShot = 1;
-  player.fireRate = 0.16;
+  player.fireRate = 0.14;
   player.projectileSpeed = 760;
   player.spread = 0.1;
   player.pierce = 0;
@@ -523,6 +520,7 @@ function spawnEnemy(kind = "normal", x = null) {
     base.variant = "boss";
   }
 
+  base.laneCenter = kind === "boss" ? WIDTH * 0.5 : laneX(base.x < WIDTH * 0.5 ? "left" : "right");
   state.enemies.push(base);
 }
 
@@ -875,8 +873,8 @@ function spawnChoiceWave() {
     vy: 128 + state.stage * 5,
     width: 116,
     height: 52,
-    hp: 3 + Math.floor(state.difficulty * 0.9),
-    maxHp: 3 + Math.floor(state.difficulty * 0.9),
+    hp: 2 + Math.floor(state.difficulty * 0.7),
+    maxHp: 2 + Math.floor(state.difficulty * 0.7),
     option: createGateOption(),
   });
 }
@@ -936,7 +934,7 @@ function showStartScreen() {
     <div class="card start-card">
       <p class="start-kicker">STAGE SURVIVAL</p>
       <h2>무기를 고르고 출발</h2>
-      <p>적과 아이템 박스가 좌우 라인으로 내려옵니다. 아이템은 쏴서 부수면 획득합니다.</p>
+      <p>← → 키 (또는 화면 좌우 터치)로 라인을 전환하세요. 적이 있는 라인에만 자동 발사됩니다. 반대편 라인의 아이템 박스도 놓치지 마세요!</p>
       <div class="weapon-choices">
         ${Object.entries(starterWeapons).map(([key, weapon]) => `
           <button class="choice weapon-choice" type="button" data-weapon="${key}">
@@ -1025,44 +1023,38 @@ function update(dt) {
   state.difficulty = 1 + Math.min(1.4, state.stageTime / 92) + (state.stage - 1) * 0.34;
 
   const player = state.player;
-  const movingLeft = keys.has("ArrowLeft") || keys.has("KeyA");
-  const movingRight = keys.has("ArrowRight") || keys.has("KeyD");
-  let moveAxis = (movingRight ? 1 : 0) - (movingLeft ? 1 : 0);
 
+  // Lane switching: keyboard or touch
   if (pointerState.active) {
-    const diff = pointerState.x - player.x;
-    if (Math.abs(diff) > 12) {
-      moveAxis = diff > 0 ? 1 : -1;
-    } else {
-      moveAxis = 0;
+    player.lane = pointerState.x < WIDTH * 0.5 ? "left" : "right";
+  } else if (player.switchCooldown <= 0) {
+    if ((keys.has("ArrowLeft") || keys.has("KeyA")) && player.lane !== "left") {
+      player.lane = "left";
+      player.switchCooldown = 0.28;
+    } else if ((keys.has("ArrowRight") || keys.has("KeyD")) && player.lane !== "right") {
+      player.lane = "right";
+      player.switchCooldown = 0.28;
     }
   }
+  player.switchCooldown = Math.max(0, player.switchCooldown - dt);
 
-  if (pointerState.active) {
-    const diff = pointerState.x - player.x;
-    player.vx = clamp(diff * 9, -player.maxSpeed, player.maxSpeed);
-  } else if (moveAxis !== 0) {
-    player.vx += moveAxis * player.accel * dt;
-  } else {
-    player.vx *= Math.pow(player.drag, dt * 60);
-  }
+  // Smooth slide to lane
+  const targetX = laneX(player.lane);
+  const distToTarget = targetX - player.x;
+  player.x += distToTarget * Math.min(1, dt * 14);
 
-  if ((keys.has("ShiftLeft") || keys.has("ShiftRight")) && player.dashCooldown <= 0 && moveAxis !== 0) {
-    player.vx = moveAxis * (player.maxSpeed + 240);
-    player.dashCooldown = 1.3;
-  }
+  // Roll tilt during lane change
+  player.roll += ((Math.abs(distToTarget) > 8 ? Math.sign(distToTarget) * 0.08 : 0) - player.roll) * Math.min(1, dt * 10);
 
-  player.dashCooldown = Math.max(0, player.dashCooldown - dt);
-  player.vx = clamp(player.vx, -player.maxSpeed, player.maxSpeed);
-  player.x = clamp(player.x + player.vx * dt, player.laneMinX, player.laneMaxX);
   player.fireTimer -= dt;
   player.hitFlash = Math.max(0, player.hitFlash - dt * 4);
   player.muzzleTimer = Math.max(0, player.muzzleTimer - dt);
-  player.roll += (moveAxis * 0.08 - player.roll) * Math.min(1, dt * 10);
   syncCompanions();
 
   if (player.fireTimer <= 0) {
-    fireShot();
+    const playerLaneCenter = laneX(player.lane);
+    const hasLaneEnemies = state.enemies.some(e => Math.abs(e.x - playerLaneCenter) < 100);
+    if (hasLaneEnemies) fireShot();
     player.fireTimer = player.fireRate;
   }
 
@@ -1118,8 +1110,9 @@ function update(dt) {
     enemy.y += enemy.speed * dt;
     enemy.frame += dt * (2 + enemy.speed * 0.01);
     enemy.hitTimer = Math.max(0, enemy.hitTimer - dt);
-    enemy.x += Math.sin(enemy.frame) * 20 * dt;
-    enemy.x = clamp(enemy.x, player.laneMinX + 20, player.laneMaxX - 20);
+    enemy.x += Math.sin(enemy.frame) * 18 * dt;
+    const lanePad = enemy.kind === "boss" ? 120 : 58;
+    enemy.x = clamp(enemy.x, (enemy.laneCenter || WIDTH * 0.5) - lanePad, (enemy.laneCenter || WIDTH * 0.5) + lanePad);
   }
 
   for (const gate of state.gates) {
@@ -1189,7 +1182,7 @@ function update(dt) {
     const enemy = state.enemies[i];
     if (enemy.y > HEIGHT + 40) {
       removeEnemyWithoutKill(i);
-      applyPlayerDamage(enemy.damage * 0.42);
+      applyPlayerDamage(enemy.damage * 0.32);
       state.player.hitFlash = 1;
       state.flash = 0.35;
       audio.playerHurt();
