@@ -318,11 +318,13 @@ function createState() {
     difficulty: 1,
     stage: 1,
     stageTime: 0,
-    stageDuration: 120,
+    stageDuration: 60,
     stageBossesSpawned: 0,
     stageBossesDefeated: 0,
     stageStartScore: 0,
     stageClear: false,
+    stageKills: 0,
+    stageItems: 0,
     enemyLane: Math.random() < 0.5 ? "left" : "right",
     pendingStageBonus: 0,
     started: false,
@@ -338,7 +340,7 @@ function createState() {
       lane: "left",
       switchCooldown: 0,
       roll: 0,
-      fireRate: 0.38,
+      fireRate: 0.32,
       fireTimer: 0,
       projectileSpeed: 760,
       projectilesPerShot: 1,
@@ -391,11 +393,13 @@ function resetWeaponLoadout() {
   player.weaponType = "bullet";
   player.damage = 2;
   player.projectilesPerShot = 1;
-  player.fireRate = 0.38;
+  player.fireRate = 0.32;
   player.projectileSpeed = 760;
   player.spread = 0.1;
   player.pierce = 0;
   player.fireTimer = 0;
+  player.companionCount = 0;
+  state.companions = [];
 }
 
 function spawnEnemy(kind = "normal", x = null) {
@@ -423,8 +427,8 @@ function spawnEnemy(kind = "normal", x = null) {
     w: 30,
     h: 40,
     speed: uniformSpeed,
-    hp: 4 + Math.floor(intensity * 1.6),
-    maxHp: 4 + Math.floor(intensity * 1.6),
+    hp: 3 + Math.floor(intensity * 1.2),
+    maxHp: 3 + Math.floor(intensity * 1.2),
     damage: 9,
     value: 6,
     color: "#ef476f",
@@ -485,7 +489,7 @@ function spawnEnemy(kind = "normal", x = null) {
   }
 
   if (kind === "boss") {
-    const bossLane = Math.random() < 0.5 ? "left" : "right";
+    const bossLane = state.enemyLane;
     base.x = laneX(bossLane);
     base.y = -70;
     base.w = 64;
@@ -499,7 +503,7 @@ function spawnEnemy(kind = "normal", x = null) {
     base.scale = 1.85;
     base.variant = "boss";
     base.bossLane = bossLane;
-    base.laneSwitchTimer = rand(3.0, 4.5);
+    base.laneSwitchTimer = Infinity;
   }
 
   base.laneCenter = laneX(base.x < WIDTH * 0.5 ? "left" : "right");
@@ -656,6 +660,7 @@ function cleanupDeadEnemies() {
 function defeatEnemy(index) {
   const enemy = state.enemies[index];
   if (!enemy) return;
+  state.stageKills += 1;
   if (enemy.kind === "boss") {
     state.stageBossesDefeated += 1;
     addBannerText(`BOSS ${state.stageBossesDefeated}/2 DOWN`, "#ffd166");
@@ -821,15 +826,15 @@ function spawnChoiceWave() {
   const enemySide = state.enemyLane;
   spawnEnemy("normal", laneX(enemySide));
 
-  // Item lane: item boxes spawn regularly (every 3 waves, plus random chance later)
-  const shouldSpawnItem = state.waveCount % 3 === 0 || (state.waveCount > 5 && Math.random() < 0.18);
+  // Item lane: rare, deliberate decision points
+  const shouldSpawnItem = state.waveCount % 4 === 0 || (state.waveCount > 8 && Math.random() < 0.12);
   if (!shouldSpawnItem) {
     return;
   }
 
   const itemSide = enemySide === "left" ? "right" : "left";
   const playerDamage = Math.max(1, state.player.damage || 1);
-  const shotsRequired = clamp(5 + Math.floor(state.stage * 0.7) + Math.floor(state.difficulty * 0.8), 5, 10);
+  const shotsRequired = clamp(5 + Math.floor(state.stage * 0.6) + Math.floor(state.difficulty * 0.7), 5, 11);
   const hp = Math.ceil(playerDamage * shotsRequired);
   state.gates.push({
     x: laneX(itemSide),
@@ -848,6 +853,7 @@ function collectItemBox(index) {
   if (!item) return;
   item.option.apply();
   state.score += 18;
+  state.stageItems += 1;
   audio.levelUp();
   state.gates.splice(index, 1);
 }
@@ -920,7 +926,12 @@ function showGameOver() {
 
 function showStageClear() {
   state.stageClear = true;
-  state.pendingStageBonus = Math.floor(240 + state.stage * 90 + state.player.hp * 2 + state.stageBossesDefeated * 180);
+  const hpBonus = Math.floor(state.player.hp * 2);
+  const killBonus = state.stageKills * 6;
+  const itemBonus = state.stageItems * 30;
+  state.pendingStageBonus = Math.floor(
+    240 + state.stage * 90 + hpBonus + state.stageBossesDefeated * 180 + killBonus + itemBonus,
+  );
   const stageScore = Math.max(0, Math.floor(state.score - state.stageStartScore));
   overlay.className = "overlay";
   overlay.innerHTML = `
@@ -929,10 +940,14 @@ function showStageClear() {
       <h2>전장 돌파 성공</h2>
       <div class="score-grid">
         <div><span>Stage Score</span><strong>${stageScore}</strong></div>
+        <div><span>Kills</span><strong>${state.stageKills}</strong></div>
+        <div><span>Items</span><strong>${state.stageItems}</strong></div>
         <div><span>Boss Down</span><strong>${state.stageBossesDefeated}/2</strong></div>
-        <div><span>Clear Bonus</span><strong>${state.pendingStageBonus}</strong></div>
-        <div><span>Total</span><strong>${Math.floor(state.score + state.pendingStageBonus)}</strong></div>
+        <div><span>Survived HP</span><strong>${Math.ceil(state.player.hp)}/${state.player.maxHp}</strong></div>
+        <div><span>Clear Bonus</span><strong>+${state.pendingStageBonus}</strong></div>
       </div>
+      <p class="stage-clear-note">다음 스테이지에서 무기가 <strong>RIFLE 기본값으로 리셋</strong>됩니다. 다시 아이템을 모아 빌드를 완성하세요.</p>
+      <p class="stage-clear-total">TOTAL <strong>${Math.floor(state.score + state.pendingStageBonus)}</strong></p>
       <button class="choice restart-choice" type="button" data-next-stage="true">다음 스테이지 진입</button>
     </div>
   `;
@@ -949,6 +964,8 @@ function advanceStage() {
   state.stageClear = false;
   state.pendingStageBonus = 0;
   state.enemyTimer = 1.2;
+  state.stageKills = 0;
+  state.stageItems = 0;
   state.enemyLane = Math.random() < 0.5 ? "left" : "right";
   const enemyLabel = state.enemyLane === "left" ? "◀ 왼쪽 = 적" : "오른쪽 = 적 ▶";
   addBannerText(enemyLabel, "#ef476f");
@@ -957,6 +974,7 @@ function advanceStage() {
   state.beams = [];
   state.gates = [];
   resetWeaponLoadout();
+  addBannerText("WEAPON RESET", "#ffd6a5");
   state.player.hp = clamp(state.player.hp + state.player.maxHp * 0.28, 0, state.player.maxHp);
   state.player.shield = Math.min(60, state.player.shield + 18);
   state.horizonPulse = 1;
@@ -1034,12 +1052,12 @@ function update(dt) {
   state.enemyTimer -= dt;
   if (state.enemyTimer <= 0) {
     spawnChoiceWave();
-    const baseRate = 1.20 - Math.min(0.48, state.stageTime * 0.0046) - (state.stage - 1) * 0.055;
-    const spawnRate = Math.max(0.46, baseRate);
+    const baseRate = 1.35 - Math.min(0.48, state.stageTime * 0.0044) - (state.stage - 1) * 0.05;
+    const spawnRate = Math.max(0.55, baseRate);
     state.enemyTimer = rand(spawnRate * 0.65, spawnRate);
   }
 
-  const bossTimes = [45, 95];
+  const bossTimes = [22, 46];
   if (
     state.stageBossesSpawned < 2 &&
     state.stageTime >= bossTimes[state.stageBossesSpawned]
@@ -1071,15 +1089,9 @@ function update(dt) {
     enemy.frame += dt * (2 + enemy.speed * 0.01);
     enemy.hitTimer = Math.max(0, enemy.hitTimer - dt);
 
-    // Boss periodically switches lanes
     if (enemy.kind === "boss") {
-      enemy.laneSwitchTimer -= dt;
-      if (enemy.laneSwitchTimer <= 0) {
-        enemy.bossLane = enemy.bossLane === "left" ? "right" : "left";
-        enemy.laneCenter = laneX(enemy.bossLane);
-        enemy.laneSwitchTimer = rand(2.6, 4.2);
-      }
-      // Glide toward lane center
+      enemy.bossLane = state.enemyLane;
+      enemy.laneCenter = laneX(state.enemyLane);
       enemy.x += (enemy.laneCenter - enemy.x) * Math.min(1, dt * 1.6);
     } else {
       enemy.x += Math.sin(enemy.frame) * 18 * dt;
@@ -1156,7 +1168,7 @@ function update(dt) {
     const enemy = state.enemies[i];
     if (enemy.y > HEIGHT + 40) {
       removeEnemyWithoutKill(i);
-      applyPlayerDamage(enemy.damage * 0.55);
+      applyPlayerDamage(enemy.damage * 0.42);
       state.player.hitFlash = 1;
       state.flash = 0.35;
       audio.playerHurt();
