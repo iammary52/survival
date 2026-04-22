@@ -399,8 +399,6 @@ function resetWeaponLoadout() {
   player.spread = 0.1;
   player.pierce = 0;
   player.fireTimer = 0;
-  player.companionCount = 0;
-  state.companions = [];
 }
 
 function spawnEnemy(kind = "normal", x = null) {
@@ -770,24 +768,6 @@ function createGateOption() {
       apply: () => {
         state.player.fireRate = Math.max(0.08, state.player.fireRate - 0.045);
         addBannerText("RATE UP", "#caffbf");
-      },
-    },
-    {
-      label: "PIERCE",
-      tier: 2,
-      color: "#bde0fe",
-      apply: () => {
-        state.player.pierce = Math.min(3, (state.player.pierce || 0) + 1);
-        addBannerText(`PIERCE +1`, "#bde0fe");
-      },
-    },
-    {
-      label: "SPEED",
-      tier: 2,
-      color: "#80ffdb",
-      apply: () => {
-        state.player.projectileSpeed = Math.min(1400, state.player.projectileSpeed + 120);
-        addBannerText("BULLET SPEED UP", "#80ffdb");
       },
     },
     {
