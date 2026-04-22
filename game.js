@@ -43,12 +43,12 @@ const starterWeapons = {
   },
   laser: {
     name: "LASER",
-    desc: "직선상의 적을 관통합니다. 조준 라인을 잡는 재미가 큽니다.",
+    desc: "전방 직선의 첫 대상을 강하게 타격합니다.",
     apply: (player) => {
       player.weaponType = "laser";
       player.damage = 2;
       player.projectilesPerShot = 1;
-      player.pierce = 1;
+      player.pierce = 0;
       player.fireRate = 0.18;
     },
   },
@@ -287,15 +287,6 @@ const upgradePool = [
     apply: (state) => state.player.damage += 1,
   },
   {
-    key: "speed",
-    title: "터보 부츠",
-    desc: "이동 속도와 가속이 높아져 라인 전환이 쉬워집니다.",
-    apply: (state) => {
-      state.player.maxSpeed += 55;
-      state.player.accel += 160;
-    },
-  },
-  {
     key: "rate",
     title: "고속 장전",
     desc: "발사 간격 감소, 체감 화력이 크게 오릅니다.",
@@ -303,8 +294,8 @@ const upgradePool = [
   },
   {
     key: "multishot",
-    title: "분산 사격",
-    desc: "탄환 수 +1, 넓은 라인 커버가 가능해집니다.",
+    title: "전방 사격",
+    desc: "탄환 수 +1, 전방 화력이 강해집니다.",
     apply: (state) => state.player.projectilesPerShot = Math.min(5, state.player.projectilesPerShot + 1),
   },
   {
@@ -314,12 +305,6 @@ const upgradePool = [
     apply: (state) => {
       state.player.hp = clamp(state.player.hp + state.player.maxHp * 0.35, 0, state.player.maxHp);
     },
-  },
-  {
-    key: "pierce",
-    title: "관통 탄두",
-    desc: "탄환 관통력 +1, 적이 겹쳐도 화력이 유지됩니다.",
-    apply: (state) => state.player.pierce += 1,
   },
 ];
 
@@ -350,6 +335,7 @@ function createState() {
     level: 1,
     nextXp: 18,
     enemyTimer: 0,
+    waveCount: 0,
     difficulty: 1,
     stage: 1,
     stageTime: 0,
@@ -543,7 +529,7 @@ function spawnEnemy(kind = "normal", x = null) {
 function fireShot() {
   const player = state.player;
   if (player.weaponType === "laser") {
-    fireLaser(player.x, player.y - player.h * 0.5, player.damage, player.projectilesPerShot);
+    fireLaser(player.x, player.y - player.h * 0.5, player.damage, 1);
     audio.shot();
     state.flash = 0.14;
     state.player.muzzleTimer = 0.08;
@@ -551,19 +537,17 @@ function fireShot() {
   }
 
   const count = player.projectilesPerShot;
-  const center = (count - 1) / 2;
 
   if (player.weaponType === "flame") {
-    const flameRange = clamp(250 + state.level * 28 + count * 42, 280, HEIGHT * 0.5);
+    const flameRange = clamp(250 + state.level * 28 + count * 34, 280, HEIGHT * 0.5);
     for (let i = 0; i < Math.max(5, count * 4); i += 1) {
-      const spread = rand(-0.42, 0.42) + (i - center) * 0.02;
       const ySpeed = player.projectileSpeed * rand(0.42, 0.58);
       state.bullets.push({
         x: player.x + rand(-8, 8),
         y: player.y - player.h * 0.5,
         r: rand(7, 13),
         speed: ySpeed,
-        vx: spread * player.projectileSpeed,
+        vx: rand(-0.045, 0.045) * player.projectileSpeed,
         vy: -ySpeed,
         damage: Math.max(1, Math.ceil(player.damage * 0.55)),
         pierce: 0,
@@ -578,17 +562,16 @@ function fireShot() {
   }
 
   for (let i = 0; i < count; i += 1) {
-    const offset = (i - center) * player.spread;
-    const isSpread = player.weaponType === "spread";
+    const offset = (i - (count - 1) / 2) * 8;
     state.bullets.push({
-      x: player.x,
+      x: player.x + offset,
       y: player.y - player.h * 0.5,
       r: 5,
       speed: player.projectileSpeed,
-      vx: offset * player.projectileSpeed * (isSpread ? 1.45 : 1),
+      vx: 0,
       vy: -player.projectileSpeed,
       damage: player.damage,
-      pierce: player.pierce,
+      pierce: 0,
       type: player.weaponType,
     });
   }
@@ -612,7 +595,7 @@ function fireShot() {
 
 function fireLaser(x, y, damage, lanes = 1) {
   const offsets = [];
-  const count = Math.min(5, lanes);
+  const count = Math.min(1, lanes);
   const center = (count - 1) / 2;
   for (let i = 0; i < count; i += 1) {
     offsets.push((i - center) * 24);
@@ -621,29 +604,49 @@ function fireLaser(x, y, damage, lanes = 1) {
   for (const offset of offsets) {
     const beamX = x + offset;
     state.beams.push({ x: beamX, y1: 18, y2: y, life: 0.1, width: 8 });
+    let targetEnemy = null;
+    let targetIndex = -1;
     for (const enemy of state.enemies) {
       const horizontal = Math.abs(enemy.x - beamX) < enemy.w * 0.8 + 18;
       const vertical = enemy.y < y + enemy.h * 0.5 && enemy.y > 0;
       if (horizontal && vertical) {
-        enemy.hp -= damage * 2.2;
-        enemy.hitTimer = 0.16;
-        spawnHitParticles(enemy.x, enemy.y, enemy.color);
+        if (!targetEnemy || enemy.y > targetEnemy.y) {
+          targetEnemy = enemy;
+          targetIndex = state.enemies.indexOf(enemy);
+        }
       }
     }
+    if (targetEnemy) {
+      targetEnemy.hp -= damage * 2.2;
+      targetEnemy.hitTimer = 0.16;
+      spawnHitParticles(targetEnemy.x, targetEnemy.y, targetEnemy.color);
+      if (targetEnemy.hp <= 0) {
+        defeatEnemy(targetIndex);
+      }
+      continue;
+    }
+
+    let targetItem = null;
+    let targetItemIndex = -1;
     for (let i = state.gates.length - 1; i >= 0; i -= 1) {
       const item = state.gates[i];
       const horizontal = Math.abs(item.x - beamX) < item.width * 0.5 + 12;
       const vertical = item.y < y && item.y > 0;
       if (horizontal && vertical) {
-        item.hp -= damage * 2.2;
-        spawnHitParticles(item.x, item.y, item.option.color);
-        if (item.hp <= 0) {
-          collectItemBox(i);
+        if (!targetItem || item.y > targetItem.y) {
+          targetItem = item;
+          targetItemIndex = i;
         }
       }
     }
+    if (targetItem) {
+      targetItem.hp -= damage * 2.2;
+      spawnHitParticles(targetItem.x, targetItem.y, targetItem.option.color);
+      if (targetItem.hp <= 0) {
+        collectItemBox(targetItemIndex);
+      }
+    }
   }
-  cleanupDeadEnemies();
 }
 
 function spawnHitParticles(x, y, color) {
@@ -763,22 +766,21 @@ function createGateOption() {
       },
     },
     {
+      label: "RATE",
+      tier: 2,
+      color: "#caffbf",
+      apply: () => {
+        state.player.fireRate = Math.max(0.075, state.player.fireRate - 0.018);
+        addBannerText("RATE UP", "#caffbf");
+      },
+    },
+    {
       label: "x2",
       tier: 3,
       color: "#ffd166",
       apply: () => {
         state.player.damage = Math.min(10, Math.max(state.player.damage + 1, state.player.damage * 2));
         addBannerText("DAMAGE x2", "#ffd166");
-      },
-    },
-    {
-      label: "SPD",
-      tier: 1,
-      color: "#a0c4ff",
-      apply: () => {
-        state.player.maxSpeed += 30;
-        state.player.accel += 120;
-        addBannerText("SPEED UP", "#a0c4ff");
       },
     },
     {
@@ -816,7 +818,6 @@ function createGateOption() {
       apply: () => {
         state.player.weaponType = "laser";
         state.player.damage += 1;
-        state.player.pierce = Math.max(state.player.pierce, 1);
         addBannerText("LASER + POWER", "#80ffdb");
       },
     },
@@ -829,17 +830,6 @@ function createGateOption() {
         state.player.fireRate = Math.max(0.075, state.player.fireRate - 0.02);
         state.player.damage += 1;
         addBannerText("FLAMER + POWER", "#ffb703");
-      },
-    },
-    {
-      label: "SPREAD",
-      tier: 1,
-      color: "#ffc6ff",
-      apply: () => {
-        state.player.weaponType = "spread";
-        state.player.projectilesPerShot = Math.min(5, state.player.projectilesPerShot + 1);
-        state.player.spread = Math.max(state.player.spread, 0.16);
-        addBannerText("SPREAD +1", "#ffc6ff");
       },
     },
     {
@@ -862,24 +852,6 @@ function createGateOption() {
         addBannerText("ALLY x2", "#ff99c8");
       },
     },
-    {
-      label: "PIERCE",
-      tier: 2,
-      color: "#fdffb6",
-      apply: () => {
-        state.player.pierce = Math.min(4, state.player.pierce + 1);
-        addBannerText("PIERCE +1", "#fdffb6");
-      },
-    },
-    {
-      label: "WIDE",
-      tier: 2,
-      color: "#cdb4db",
-      apply: () => {
-        state.player.spread = Math.min(0.22, state.player.spread + 0.035);
-        addBannerText("SPREAD UP", "#cdb4db");
-      },
-    },
   ];
 
   const choices = optionPool.filter((option) => option.tier <= powerTier);
@@ -887,18 +859,24 @@ function createGateOption() {
 }
 
 function spawnChoiceWave() {
+  state.waveCount += 1;
   const enemySide = Math.random() < 0.5 ? "left" : "right";
-  const itemSide = enemySide === "left" ? "right" : "left";
   spawnEnemy("normal", laneX(enemySide));
 
+  const shouldSpawnItem = state.waveCount % 8 === 0 || (state.waveCount > 10 && Math.random() < 0.06);
+  if (!shouldSpawnItem) {
+    return;
+  }
+
+  const itemSide = enemySide === "left" ? "right" : "left";
   state.gates.push({
     x: laneX(itemSide),
     y: -48,
     vy: 128 + state.stage * 5,
     width: 116,
     height: 52,
-    hp: 2 + Math.floor(state.difficulty * 0.7),
-    maxHp: 2 + Math.floor(state.difficulty * 0.7),
+    hp: 3 + Math.floor(state.difficulty * 0.9),
+    maxHp: 3 + Math.floor(state.difficulty * 0.9),
     option: createGateOption(),
   });
 }
@@ -1010,6 +988,7 @@ function advanceStage() {
   state.stageBossesSpawned = 0;
   state.stageBossesDefeated = 0;
   state.stageStartScore = state.score;
+  state.waveCount = 0;
   state.stageClear = false;
   state.pendingStageBonus = 0;
   state.enemyTimer = 1.2;
@@ -1464,7 +1443,7 @@ function drawBullets() {
   }
 
   for (const bullet of state.bullets) {
-    const color = bullet.type === "flame" ? "255, 132, 56" : bullet.type === "spread" ? "255, 198, 255" : "255, 228, 148";
+    const color = bullet.type === "flame" ? "255, 132, 56" : "255, 228, 148";
     const radius = bullet.type === "flame" ? bullet.r * 1.8 : 10;
     const glow = ctx.createRadialGradient(bullet.x, bullet.y, 1, bullet.x, bullet.y, radius);
     glow.addColorStop(0, `rgba(${color}, 0.95)`);
@@ -1473,7 +1452,7 @@ function drawBullets() {
     ctx.beginPath();
     ctx.arc(bullet.x, bullet.y, radius, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = bullet.type === "flame" ? "#ff7b00" : bullet.type === "spread" ? "#ffc6ff" : "#ffe8a3";
+    ctx.fillStyle = bullet.type === "flame" ? "#ff7b00" : "#ffe8a3";
     ctx.beginPath();
     ctx.arc(bullet.x, bullet.y, bullet.r, 0, Math.PI * 2);
     ctx.fill();
@@ -1542,7 +1521,6 @@ function drawHud() {
     bullet: "RIFLE",
     laser: "LASER",
     flame: "FLAMER",
-    spread: "SPREAD",
   }[player.weaponType] || player.weaponType.toUpperCase();
 
   if (compact) {
@@ -1566,7 +1544,7 @@ function drawHud() {
     ctx.fillText(`ALLY ${player.companionCount}`, WIDTH - 112, 72);
     ctx.font = "700 13px 'Space Grotesk'";
     ctx.fillStyle = "rgba(255,255,255,0.72)";
-    ctx.fillText(`PIERCE ${player.pierce}`, WIDTH - 288, 92);
+    ctx.fillText(`RATE ${player.fireRate.toFixed(2)}s`, WIDTH - 288, 92);
     bar(WIDTH - 154, 86, 112, 8, state.xp / state.nextXp, "#72efdd");
     bar(WIDTH - 154, 28, 112, 12, player.hp / player.maxHp, "#ff6b6b");
     if (player.shield > 0) {
