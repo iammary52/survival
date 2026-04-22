@@ -348,6 +348,9 @@ function createState() {
     stageDuration: 120,
     stageBossesSpawned: 0,
     stageBossesDefeated: 0,
+    stageStartScore: 0,
+    stageClear: false,
+    pendingStageBonus: 0,
     started: false,
     gameOver: false,
     audioHintTimer: 4,
@@ -403,7 +406,7 @@ function startGame(weaponKey = "rifle") {
   overlay.innerHTML = "";
   audio.sequenceStep = 0;
   audio.musicClock = 0;
-  addFloatingText(`${starter.name} READY`, WIDTH * 0.5, HEIGHT - 260, "#ffd6a5");
+  addBannerText(`${starter.name} READY`, "#ffd6a5");
 }
 
 function spawnEnemy(kind = "normal") {
@@ -636,7 +639,7 @@ function defeatEnemy(index) {
   if (!enemy) return;
   if (enemy.kind === "boss") {
     state.stageBossesDefeated += 1;
-    addFloatingText(`BOSS ${state.stageBossesDefeated}/2`, enemy.x, enemy.y - 28, "#ffd166");
+    addBannerText(`BOSS ${state.stageBossesDefeated}/2 DOWN`, "#ffd166");
   }
   gainXp(enemy.value, enemy.x, enemy.y);
   audio.enemyDown();
@@ -720,7 +723,7 @@ function createGateOption() {
       color: "#72efdd",
       apply: () => {
         state.player.projectilesPerShot = Math.min(5, state.player.projectilesPerShot + 1);
-        addFloatingText("SHOT +1", state.player.x, state.player.y - 60, "#72efdd");
+        addBannerText("SHOT +1", "#72efdd");
       },
     },
     {
@@ -729,7 +732,7 @@ function createGateOption() {
       color: "#ffd166",
       apply: () => {
         state.player.damage = Math.min(10, Math.max(state.player.damage + 1, state.player.damage * 2));
-        addFloatingText("DAMAGE x2", state.player.x, state.player.y - 60, "#ffd166");
+        addBannerText("DAMAGE x2", "#ffd166");
       },
     },
     {
@@ -739,7 +742,7 @@ function createGateOption() {
       apply: () => {
         state.player.maxSpeed += 30;
         state.player.accel += 120;
-        addFloatingText("SPEED UP", state.player.x, state.player.y - 60, "#a0c4ff");
+        addBannerText("SPEED UP", "#a0c4ff");
       },
     },
     {
@@ -748,7 +751,7 @@ function createGateOption() {
       color: "#ffadad",
       apply: () => {
         state.player.hp = clamp(state.player.hp + 18, 0, state.player.maxHp);
-        addFloatingText("HP +18", state.player.x, state.player.y - 60, "#ffadad");
+        addBannerText("HP +18", "#ffadad");
       },
     },
     {
@@ -758,7 +761,7 @@ function createGateOption() {
       apply: () => {
         state.player.maxHp += 18;
         state.player.hp = clamp(state.player.hp + 28, 0, state.player.maxHp);
-        addFloatingText("MAX HP UP", state.player.x, state.player.y - 60, "#ffadad");
+        addBannerText("MAX HP UP", "#ffadad");
       },
     },
     {
@@ -767,7 +770,7 @@ function createGateOption() {
       color: "#bde0fe",
       apply: () => {
         state.player.shield = Math.min(60, state.player.shield + 24);
-        addFloatingText("SHIELD +24", state.player.x, state.player.y - 60, "#bde0fe");
+        addBannerText("SHIELD +24", "#bde0fe");
       },
     },
     {
@@ -778,7 +781,7 @@ function createGateOption() {
         state.player.weaponType = "laser";
         state.player.damage += 1;
         state.player.pierce = Math.max(state.player.pierce, 1);
-        addFloatingText("LASER + POWER", state.player.x, state.player.y - 60, "#80ffdb");
+        addBannerText("LASER + POWER", "#80ffdb");
       },
     },
     {
@@ -789,7 +792,7 @@ function createGateOption() {
         state.player.weaponType = "flame";
         state.player.fireRate = Math.max(0.075, state.player.fireRate - 0.02);
         state.player.damage += 1;
-        addFloatingText("FLAMER + POWER", state.player.x, state.player.y - 60, "#ffb703");
+        addBannerText("FLAMER + POWER", "#ffb703");
       },
     },
     {
@@ -800,7 +803,7 @@ function createGateOption() {
         state.player.weaponType = "spread";
         state.player.projectilesPerShot = Math.min(5, state.player.projectilesPerShot + 1);
         state.player.spread = Math.max(state.player.spread, 0.16);
-        addFloatingText("SPREAD +1", state.player.x, state.player.y - 60, "#ffc6ff");
+        addBannerText("SPREAD +1", "#ffc6ff");
       },
     },
     {
@@ -810,7 +813,7 @@ function createGateOption() {
       apply: () => {
         state.player.companionCount = Math.min(4, (state.player.companionCount || 0) + 1);
         syncCompanions();
-        addFloatingText("ALLY +1", state.player.x, state.player.y - 60, "#f1c0e8");
+        addBannerText("ALLY +1", "#f1c0e8");
       },
     },
     {
@@ -820,7 +823,7 @@ function createGateOption() {
       apply: () => {
         state.player.companionCount = Math.min(4, Math.max(1, (state.player.companionCount || 0) * 2));
         syncCompanions();
-        addFloatingText("ALLY x2", state.player.x, state.player.y - 60, "#ff99c8");
+        addBannerText("ALLY x2", "#ff99c8");
       },
     },
     {
@@ -829,7 +832,7 @@ function createGateOption() {
       color: "#fdffb6",
       apply: () => {
         state.player.pierce = Math.min(4, state.player.pierce + 1);
-        addFloatingText("PIERCE +1", state.player.x, state.player.y - 60, "#fdffb6");
+        addBannerText("PIERCE +1", "#fdffb6");
       },
     },
     {
@@ -838,7 +841,7 @@ function createGateOption() {
       color: "#cdb4db",
       apply: () => {
         state.player.spread = Math.min(0.22, state.player.spread + 0.035);
-        addFloatingText("SPREAD UP", state.player.x, state.player.y - 60, "#cdb4db");
+        addBannerText("SPREAD UP", "#cdb4db");
       },
     },
   ];
@@ -871,6 +874,17 @@ function spawnGatePair() {
 
 function addFloatingText(text, x, y, color = "#ffffff") {
   state.floatingTexts.push({ text, x, y, color, life: 0.7 });
+}
+
+function addBannerText(text, color = "#ffffff") {
+  state.floatingTexts.push({
+    text,
+    x: WIDTH * 0.5,
+    y: 128,
+    color,
+    life: 1.25,
+    banner: true,
+  });
 }
 
 function gainXp(amount, x, y) {
@@ -923,17 +937,41 @@ function showGameOver() {
   overlay.innerHTML = `
     <div class="card">
       <h2>작전 종료</h2>
-      <p>점수 ${Math.floor(state.score)}점, 생존 ${state.time.toFixed(1)}초, 레벨 ${state.level}까지 버텼습니다.</p>
-      <p>Enter를 누르면 즉시 다시 시작합니다.</p>
+      <p>총점 ${Math.floor(state.score)}점 / 생존 ${state.time.toFixed(1)}초 / 스테이지 ${state.stage}</p>
+      <button class="choice restart-choice" type="button" data-restart="true">다시 무기 선택하기</button>
+    </div>
+  `;
+}
+
+function showStageClear() {
+  state.stageClear = true;
+  state.pendingStageBonus = Math.floor(240 + state.stage * 90 + state.player.hp * 2 + state.stageBossesDefeated * 180);
+  const stageScore = Math.max(0, Math.floor(state.score - state.stageStartScore));
+  overlay.className = "overlay";
+  overlay.innerHTML = `
+    <div class="card stage-clear-card">
+      <p class="start-kicker">STAGE ${state.stage} CLEAR</p>
+      <h2>전장 돌파 성공</h2>
+      <div class="score-grid">
+        <div><span>Stage Score</span><strong>${stageScore}</strong></div>
+        <div><span>Boss Down</span><strong>${state.stageBossesDefeated}/2</strong></div>
+        <div><span>Clear Bonus</span><strong>${state.pendingStageBonus}</strong></div>
+        <div><span>Total</span><strong>${Math.floor(state.score + state.pendingStageBonus)}</strong></div>
+      </div>
+      <button class="choice restart-choice" type="button" data-next-stage="true">다음 스테이지 진입</button>
     </div>
   `;
 }
 
 function advanceStage() {
+  state.score += state.pendingStageBonus;
   state.stage += 1;
   state.stageTime = 0;
   state.stageBossesSpawned = 0;
   state.stageBossesDefeated = 0;
+  state.stageStartScore = state.score;
+  state.stageClear = false;
+  state.pendingStageBonus = 0;
   state.enemyTimer = 1.2;
   state.gateTimer = 3.5;
   state.enemies = [];
@@ -945,7 +983,9 @@ function advanceStage() {
   state.horizonPulse = 1;
   state.flash = Math.max(state.flash, 0.2);
   audio.levelUp();
-  addFloatingText(`STAGE ${state.stage}`, WIDTH * 0.5, 168, "#ffd166");
+  overlay.className = "overlay hidden";
+  overlay.innerHTML = "";
+  addBannerText(`STAGE ${state.stage}`, "#ffd166");
 }
 
 function rectsOverlap(a, b) {
@@ -956,7 +996,7 @@ function rectsOverlap(a, b) {
 }
 
 function update(dt) {
-  if (!state.started || state.gameOver) {
+  if (!state.started || state.gameOver || state.stageClear) {
     return;
   }
 
@@ -1035,7 +1075,7 @@ function update(dt) {
   ) {
     spawnEnemy("boss");
     state.stageBossesSpawned += 1;
-    addFloatingText(`BOSS ${state.stageBossesSpawned}/2`, WIDTH * 0.5, 148, "#ffd166");
+    addBannerText(`BOSS ${state.stageBossesSpawned}/2 INCOMING`, "#ffd166");
   }
 
   state.gateTimer -= dt;
@@ -1184,7 +1224,7 @@ function update(dt) {
     audio.gameOver();
     showGameOver();
   } else if (state.stageTime >= state.stageDuration && state.stageBossesDefeated >= 2) {
-    advanceStage();
+    showStageClear();
   }
 }
 
@@ -1301,6 +1341,7 @@ function drawEnemies() {
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(enemyImage, -size * 0.48, -size * 0.68, size * 0.96, size * 0.96);
       ctx.filter = "none";
+      drawEnemyVariantMarks(enemy, size);
       if (enemy.hitTimer > 0) {
         ctx.globalCompositeOperation = "screen";
         ctx.fillStyle = "rgba(255, 120, 96, 0.12)";
@@ -1324,20 +1365,67 @@ function drawEnemies() {
   }
 }
 
+function drawEnemyVariantMarks(enemy, size) {
+  ctx.save();
+  ctx.globalAlpha = enemy.kind === "boss" ? 0.9 : 0.72;
+  if (enemy.variant === "sprinter") {
+    ctx.strokeStyle = "#7cc6fe";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.22, -size * 0.1);
+    ctx.lineTo(-size * 0.44, size * 0.22);
+    ctx.moveTo(size * 0.22, -size * 0.1);
+    ctx.lineTo(size * 0.44, size * 0.22);
+    ctx.stroke();
+  } else if (enemy.variant === "crawler") {
+    ctx.fillStyle = "rgba(72, 202, 228, 0.72)";
+    ctx.beginPath();
+    ctx.ellipse(0, size * 0.02, size * 0.34, size * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (enemy.variant === "brute") {
+    ctx.fillStyle = "rgba(255, 183, 3, 0.72)";
+    ctx.fillRect(-size * 0.34, -size * 0.46, size * 0.18, size * 0.22);
+    ctx.fillRect(size * 0.16, -size * 0.46, size * 0.18, size * 0.22);
+  } else if (enemy.variant === "boss") {
+    ctx.strokeStyle = "rgba(255, 209, 102, 0.9)";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(0, -size * 0.24, size * 0.34, Math.PI * 0.1, Math.PI * 0.9);
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = "rgba(239, 71, 111, 0.7)";
+    ctx.beginPath();
+    ctx.arc(-size * 0.08, -size * 0.28, 5, 0, Math.PI * 2);
+    ctx.arc(size * 0.08, -size * 0.28, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawCompanions() {
   for (const companion of state.companions) {
     ctx.save();
     ctx.translate(companion.x, companion.y);
-    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillStyle = "rgba(0,0,0,0.34)";
     ctx.beginPath();
-    ctx.ellipse(0, 20, 14, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 28, 24, 9, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = "rgba(114, 239, 221, 0.82)";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, -14, 38, 0, Math.PI * 2);
+    ctx.stroke();
     if (assets.hero.complete && assets.hero.naturalWidth > 0) {
-      ctx.globalAlpha = 0.88;
-      ctx.filter = "brightness(0.9) saturate(0.6) contrast(0.96)";
-      ctx.drawImage(assets.hero, -36, -50, 72, 72);
+      ctx.globalAlpha = 0.96;
+      ctx.filter = "brightness(1.1) saturate(0.95) hue-rotate(155deg) contrast(1.08)";
+      ctx.drawImage(assets.hero, -52, -74, 104, 104);
       ctx.filter = "none";
     }
+    ctx.fillStyle = "#72efdd";
+    ctx.font = "800 13px 'Space Grotesk'";
+    ctx.textAlign = "center";
+    ctx.fillText("ALLY", 0, -54);
+    ctx.textAlign = "start";
     ctx.restore();
   }
 }
@@ -1413,10 +1501,16 @@ function drawParticles() {
 }
 
 function drawFloatingTexts() {
-  ctx.font = "700 16px 'Space Grotesk'";
   ctx.textAlign = "center";
   for (const text of state.floatingTexts) {
-    ctx.globalAlpha = Math.max(0, text.life * 1.5);
+    ctx.globalAlpha = Math.min(1, Math.max(0, text.life * 1.5));
+    if (text.banner) {
+      const width = Math.min(460, 112 + text.text.length * 16);
+      roundRect(text.x - width * 0.5, text.y - 28, width, 44, 20, "rgba(4, 8, 13, 0.82)", "rgba(255,255,255,0.16)");
+      ctx.font = "900 24px 'Space Grotesk'";
+    } else {
+      ctx.font = "800 17px 'Space Grotesk'";
+    }
     ctx.fillStyle = text.color;
     ctx.fillText(text.text, text.x, text.y);
   }
@@ -1563,9 +1657,9 @@ function draw() {
   drawCompanions();
   drawPlayer();
   drawParticles();
-  drawFloatingTexts();
   drawAtmosphere();
   drawHud();
+  drawFloatingTexts();
 }
 
 function drawAtmosphere() {
@@ -1595,6 +1689,9 @@ window.addEventListener("keydown", (event) => {
   if (state.gameOver && event.code === "Enter") {
     resetGame();
   }
+  if (state.stageClear && event.code === "Enter") {
+    advanceStage();
+  }
 });
 
 overlay.addEventListener("click", (event) => {
@@ -1608,6 +1705,13 @@ overlay.addEventListener("click", (event) => {
   const restartButton = event.target.closest("[data-restart]");
   if (restartButton) {
     resetGame();
+    return;
+  }
+
+  const nextStageButton = event.target.closest("[data-next-stage]");
+  if (nextStageButton) {
+    if (!audio.ready) audio.ensureReady();
+    advanceStage();
   }
 });
 
