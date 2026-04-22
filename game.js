@@ -33,33 +33,12 @@ const enemySpriteFrames = {
 const starterWeapons = {
   rifle: {
     name: "RIFLE",
-    desc: "가장 안정적인 기본 총기. 초반 생존이 편합니다.",
+    desc: "가장 안정적인 기본 총기.",
     apply: (player) => {
       player.weaponType = "bullet";
       player.damage = 2;
       player.projectilesPerShot = 1;
       player.pierce = 0;
-    },
-  },
-  laser: {
-    name: "LASER",
-    desc: "전방 직선의 첫 대상을 강하게 타격합니다.",
-    apply: (player) => {
-      player.weaponType = "laser";
-      player.damage = 2;
-      player.projectilesPerShot = 1;
-      player.pierce = 0;
-      player.fireRate = 0.18;
-    },
-  },
-  flame: {
-    name: "FLAMER",
-    desc: "짧은 범위를 넓게 태웁니다. 몰려오는 적에게 강합니다.",
-    apply: (player) => {
-      player.weaponType = "flame";
-      player.damage = 2;
-      player.projectilesPerShot = 1;
-      player.fireRate = 0.17;
     },
   },
 };
@@ -344,6 +323,7 @@ function createState() {
     stageBossesDefeated: 0,
     stageStartScore: 0,
     stageClear: false,
+    enemyLane: Math.random() < 0.5 ? "left" : "right",
     pendingStageBonus: 0,
     started: false,
     gameOver: false,
@@ -358,7 +338,7 @@ function createState() {
       lane: "left",
       switchCooldown: 0,
       roll: 0,
-      fireRate: 0.14,
+      fireRate: 0.38,
       fireTimer: 0,
       projectileSpeed: 760,
       projectilesPerShot: 1,
@@ -398,6 +378,8 @@ function startGame(weaponKey = "rifle") {
   audio.sequenceStep = 0;
   audio.musicClock = 0;
   addBannerText(`${starter.name} READY`, "#ffd6a5");
+  const enemyLabel = state.enemyLane === "left" ? "◀ 왼쪽 = 적" : "오른쪽 = 적 ▶";
+  setTimeout(() => addBannerText(enemyLabel, "#ef476f"), 700);
 }
 
 function laneX(side) {
@@ -409,7 +391,7 @@ function resetWeaponLoadout() {
   player.weaponType = "bullet";
   player.damage = 2;
   player.projectilesPerShot = 1;
-  player.fireRate = 0.14;
+  player.fireRate = 0.38;
   player.projectileSpeed = 760;
   player.spread = 0.1;
   player.pierce = 0;
@@ -418,7 +400,7 @@ function resetWeaponLoadout() {
 
 function spawnEnemy(kind = "normal", x = null) {
   const t = state.time;
-  const intensity = 1 + Math.min(3.2, t / 44) + (state.stage - 1) * 0.24;
+  const intensity = 1 + Math.min(3.6, t / 40) + (state.stage - 1) * 0.28;
   const eliteRoll = Math.random();
   const fastType = eliteRoll < 0.18 + intensity * 0.025;
   const tankType = kind === "boss" || eliteRoll > 0.86;
@@ -433,14 +415,16 @@ function spawnEnemy(kind = "normal", x = null) {
           ? "brute"
           : "runner";
 
+  const uniformSpeed = 72 + intensity * 18;
+
   const base = {
     x: x ?? rand(state.player.laneMinX + 14, state.player.laneMaxX - 14),
     y: -40,
     w: 30,
     h: 40,
-    speed: rand(58, 88) * intensity,
-    hp: 1 + Math.floor(intensity * 0.72),
-    maxHp: 1 + Math.floor(intensity * 0.72),
+    speed: uniformSpeed,
+    hp: 4 + Math.floor(intensity * 1.6),
+    maxHp: 4 + Math.floor(intensity * 1.6),
     damage: 9,
     value: 6,
     color: "#ef476f",
@@ -453,8 +437,7 @@ function spawnEnemy(kind = "normal", x = null) {
   };
 
   if (fastType || variant === "sprinter") {
-    base.speed *= 1.28;
-    base.hp = Math.max(2, base.hp - 1);
+    base.hp = Math.max(3, base.hp - 1);
     base.maxHp = base.hp;
     base.value += 2;
     base.color = "#ff7b00";
@@ -463,20 +446,18 @@ function spawnEnemy(kind = "normal", x = null) {
   }
 
   if (variant === "crawler") {
-    base.speed *= 0.78;
-    base.hp += 2;
+    base.hp += 3;
     base.maxHp = base.hp;
-    base.damage = 7;
+    base.damage = 9;
     base.value += 3;
     base.color = "#8ecae6";
-    base.scale *= 0.76;
+    base.scale *= 0.82;
   }
 
   if (variant === "brute") {
-    base.speed *= 0.74;
-    base.hp += 5;
+    base.hp += 8;
     base.maxHp = base.hp;
-    base.damage = 16;
+    base.damage = 18;
     base.value += 7;
     base.color = "#ffb703";
     base.w = 44;
@@ -485,10 +466,9 @@ function spawnEnemy(kind = "normal", x = null) {
   }
 
   if (tankType) {
-    base.speed *= 0.76;
-    base.hp += 3;
+    base.hp += 5;
     base.maxHp = base.hp;
-    base.damage = 14;
+    base.damage = 16;
     base.value += 5;
     base.color = "#c77dff";
     base.w = 40;
@@ -497,30 +477,32 @@ function spawnEnemy(kind = "normal", x = null) {
   }
 
   if (variant === "sprinter") {
-    base.speed *= 1.08;
     base.hp += 1;
     base.maxHp = base.hp;
     base.value += 2;
     base.color = "#7cc6fe";
-    base.scale *= 0.88;
+    base.scale *= 0.9;
   }
 
   if (kind === "boss") {
-    base.x = WIDTH * 0.5;
+    const bossLane = Math.random() < 0.5 ? "left" : "right";
+    base.x = laneX(bossLane);
     base.y = -70;
     base.w = 64;
     base.h = 72;
-    base.speed = 52 + intensity * 8;
-    base.hp = 26 + Math.floor(intensity * 9);
+    base.speed = uniformSpeed * 0.85;
+    base.hp = 32 + Math.floor(intensity * 11);
     base.maxHp = base.hp;
     base.damage = 24;
     base.value = 36;
     base.color = "#ffd166";
     base.scale = 1.85;
     base.variant = "boss";
+    base.bossLane = bossLane;
+    base.laneSwitchTimer = rand(3.0, 4.5);
   }
 
-  base.laneCenter = kind === "boss" ? WIDTH * 0.5 : laneX(base.x < WIDTH * 0.5 ? "left" : "right");
+  base.laneCenter = laneX(base.x < WIDTH * 0.5 ? "left" : "right");
   state.enemies.push(base);
 }
 
@@ -569,7 +551,7 @@ function fireShot() {
       vx: 0,
       vy: -player.projectileSpeed,
       damage: player.damage,
-      pierce: 0,
+      pierce: player.pierce || 0,
       type: player.weaponType,
     });
   }
@@ -755,7 +737,7 @@ function createGateOption() {
   const powerTier = state.time < 35 ? 1 : state.time < 75 ? 2 : 3;
   const optionPool = [
     {
-      label: "+1",
+      label: "SHOT",
       tier: 1,
       color: "#72efdd",
       apply: () => {
@@ -764,70 +746,48 @@ function createGateOption() {
       },
     },
     {
+      label: "POWER",
+      tier: 1,
+      color: "#ffd166",
+      apply: () => {
+        state.player.damage = Math.min(12, state.player.damage + 1);
+        addBannerText("POWER +1", "#ffd166");
+      },
+    },
+    {
       label: "RATE",
       tier: 2,
       color: "#caffbf",
       apply: () => {
-        state.player.fireRate = Math.max(0.075, state.player.fireRate - 0.018);
+        state.player.fireRate = Math.max(0.08, state.player.fireRate - 0.045);
         addBannerText("RATE UP", "#caffbf");
       },
     },
     {
-      label: "x2",
-      tier: 3,
-      color: "#ffd166",
-      apply: () => {
-        state.player.damage = Math.min(10, Math.max(state.player.damage + 1, state.player.damage * 2));
-        addBannerText("DAMAGE x2", "#ffd166");
-      },
-    },
-    {
-      label: "HP+",
-      tier: 1,
-      color: "#ffadad",
-      apply: () => {
-        state.player.hp = clamp(state.player.hp + 18, 0, state.player.maxHp);
-        addBannerText("HP +18", "#ffadad");
-      },
-    },
-    {
-      label: "MAX HP",
+      label: "PIERCE",
       tier: 2,
-      color: "#ffadad",
-      apply: () => {
-        state.player.maxHp += 18;
-        state.player.hp = clamp(state.player.hp + 28, 0, state.player.maxHp);
-        addBannerText("MAX HP UP", "#ffadad");
-      },
-    },
-    {
-      label: "SHIELD",
-      tier: 1,
       color: "#bde0fe",
       apply: () => {
-        state.player.shield = Math.min(60, state.player.shield + 24);
-        addBannerText("SHIELD +24", "#bde0fe");
+        state.player.pierce = Math.min(3, (state.player.pierce || 0) + 1);
+        addBannerText(`PIERCE +1`, "#bde0fe");
       },
     },
     {
-      label: "LASER",
+      label: "SPEED",
       tier: 2,
       color: "#80ffdb",
       apply: () => {
-        state.player.weaponType = "laser";
-        state.player.damage += 1;
-        addBannerText("LASER + POWER", "#80ffdb");
+        state.player.projectileSpeed = Math.min(1400, state.player.projectileSpeed + 120);
+        addBannerText("BULLET SPEED UP", "#80ffdb");
       },
     },
     {
-      label: "FLAME",
-      tier: 2,
-      color: "#ffb703",
+      label: "DMG x2",
+      tier: 3,
+      color: "#ff9770",
       apply: () => {
-        state.player.weaponType = "flame";
-        state.player.fireRate = Math.max(0.075, state.player.fireRate - 0.02);
-        state.player.damage += 1;
-        addBannerText("FLAMER + POWER", "#ffb703");
+        state.player.damage = Math.min(14, Math.max(state.player.damage + 1, state.player.damage * 2));
+        addBannerText("DAMAGE x2", "#ff9770");
       },
     },
     {
@@ -858,23 +818,27 @@ function createGateOption() {
 
 function spawnChoiceWave() {
   state.waveCount += 1;
-  const enemySide = Math.random() < 0.5 ? "left" : "right";
+  const enemySide = state.enemyLane;
   spawnEnemy("normal", laneX(enemySide));
 
-  const shouldSpawnItem = state.waveCount % 8 === 0 || (state.waveCount > 10 && Math.random() < 0.06);
+  // Item lane: item boxes spawn regularly (every 3 waves, plus random chance later)
+  const shouldSpawnItem = state.waveCount % 3 === 0 || (state.waveCount > 5 && Math.random() < 0.18);
   if (!shouldSpawnItem) {
     return;
   }
 
   const itemSide = enemySide === "left" ? "right" : "left";
+  const playerDamage = Math.max(1, state.player.damage || 1);
+  const shotsRequired = clamp(5 + Math.floor(state.stage * 0.7) + Math.floor(state.difficulty * 0.8), 5, 10);
+  const hp = Math.ceil(playerDamage * shotsRequired);
   state.gates.push({
     x: laneX(itemSide),
     y: -48,
-    vy: 128 + state.stage * 5,
+    vy: 118 + state.stage * 4,
     width: 116,
     height: 52,
-    hp: 2 + Math.floor(state.difficulty * 0.7),
-    maxHp: 2 + Math.floor(state.difficulty * 0.7),
+    hp,
+    maxHp: hp,
     option: createGateOption(),
   });
 }
@@ -932,18 +896,13 @@ function showStartScreen() {
   overlay.className = "overlay";
   overlay.innerHTML = `
     <div class="card start-card">
-      <p class="start-kicker">STAGE SURVIVAL</p>
-      <h2>무기를 고르고 출발</h2>
-      <p>← → 키 (또는 화면 좌우 터치)로 라인을 전환하세요. 적이 있는 라인에만 자동 발사됩니다. 반대편 라인의 아이템 박스도 놓치지 마세요!</p>
-      <div class="weapon-choices">
-        ${Object.entries(starterWeapons).map(([key, weapon]) => `
-          <button class="choice weapon-choice" type="button" data-weapon="${key}">
-            <strong>${weapon.name}</strong>
-            <span>${weapon.desc}</span>
-          </button>
-        `).join("")}
-      </div>
-      <p class="start-help">모바일에서는 원하는 무기를 터치하면 바로 시작합니다.</p>
+      <p class="start-kicker">LANE SURVIVOR</p>
+      <h2>출격 준비</h2>
+      <p>← → 키 (또는 화면 좌우 터치)로 라인 전환. 한쪽 라인엔 적이, 반대쪽엔 아이템 상자가 내려옵니다. 상자마다 몇 발이 필요한지 표시되니 신중히 선택하세요.</p>
+      <button class="choice start-big" type="button" data-weapon="rifle">
+        <strong>START</strong>
+        <span>RIFLE 장착 후 출격</span>
+      </button>
     </div>
   `;
 }
@@ -990,6 +949,9 @@ function advanceStage() {
   state.stageClear = false;
   state.pendingStageBonus = 0;
   state.enemyTimer = 1.2;
+  state.enemyLane = Math.random() < 0.5 ? "left" : "right";
+  const enemyLabel = state.enemyLane === "left" ? "◀ 왼쪽 = 적" : "오른쪽 = 적 ▶";
+  addBannerText(enemyLabel, "#ef476f");
   state.enemies = [];
   state.bullets = [];
   state.beams = [];
@@ -1052,9 +1014,7 @@ function update(dt) {
   syncCompanions();
 
   if (player.fireTimer <= 0) {
-    const playerLaneCenter = laneX(player.lane);
-    const hasLaneEnemies = state.enemies.some(e => Math.abs(e.x - playerLaneCenter) < 100);
-    if (hasLaneEnemies) fireShot();
+    fireShot();
     player.fireTimer = player.fireRate;
   }
 
@@ -1074,8 +1034,8 @@ function update(dt) {
   state.enemyTimer -= dt;
   if (state.enemyTimer <= 0) {
     spawnChoiceWave();
-    const baseRate = 1.38 - Math.min(0.42, state.stageTime * 0.0038) - (state.stage - 1) * 0.045;
-    const spawnRate = Math.max(0.56, baseRate);
+    const baseRate = 1.20 - Math.min(0.48, state.stageTime * 0.0046) - (state.stage - 1) * 0.055;
+    const spawnRate = Math.max(0.46, baseRate);
     state.enemyTimer = rand(spawnRate * 0.65, spawnRate);
   }
 
@@ -1110,8 +1070,22 @@ function update(dt) {
     enemy.y += enemy.speed * dt;
     enemy.frame += dt * (2 + enemy.speed * 0.01);
     enemy.hitTimer = Math.max(0, enemy.hitTimer - dt);
-    enemy.x += Math.sin(enemy.frame) * 18 * dt;
-    const lanePad = enemy.kind === "boss" ? 120 : 58;
+
+    // Boss periodically switches lanes
+    if (enemy.kind === "boss") {
+      enemy.laneSwitchTimer -= dt;
+      if (enemy.laneSwitchTimer <= 0) {
+        enemy.bossLane = enemy.bossLane === "left" ? "right" : "left";
+        enemy.laneCenter = laneX(enemy.bossLane);
+        enemy.laneSwitchTimer = rand(2.6, 4.2);
+      }
+      // Glide toward lane center
+      enemy.x += (enemy.laneCenter - enemy.x) * Math.min(1, dt * 1.6);
+    } else {
+      enemy.x += Math.sin(enemy.frame) * 18 * dt;
+    }
+
+    const lanePad = enemy.kind === "boss" ? 28 : 58;
     enemy.x = clamp(enemy.x, (enemy.laneCenter || WIDTH * 0.5) - lanePad, (enemy.laneCenter || WIDTH * 0.5) + lanePad);
   }
 
@@ -1182,7 +1156,7 @@ function update(dt) {
     const enemy = state.enemies[i];
     if (enemy.y > HEIGHT + 40) {
       removeEnemyWithoutKill(i);
-      applyPlayerDamage(enemy.damage * 0.32);
+      applyPlayerDamage(enemy.damage * 0.55);
       state.player.hitFlash = 1;
       state.flash = 0.35;
       audio.playerHurt();
@@ -1453,6 +1427,7 @@ function drawBullets() {
 }
 
 function drawGates() {
+  const playerDmg = Math.max(1, state.player.damage || 1);
   for (const item of state.gates) {
     const hpRatio = clamp(item.hp / item.maxHp, 0, 1);
     const x = item.x - item.width * 0.5;
@@ -1469,13 +1444,25 @@ function drawGates() {
     ctx.fillRect(x + 8, y + 8, item.width - 16, 8);
     ctx.fillStyle = item.option.color;
     ctx.fillRect(x + 8, y + 8, (item.width - 16) * hpRatio, 8);
+
+    // Option label (centered)
     ctx.fillStyle = item.option.color;
-    ctx.font = "900 24px 'Space Grotesk'";
+    ctx.font = "900 22px 'Space Grotesk'";
     ctx.textAlign = "center";
-    ctx.fillText(item.option.label, item.x, item.y + 12);
+    ctx.fillText(item.option.label, item.x, item.y + 10);
+
+    // Shots-to-break indicator (above the box)
+    const shotsNeeded = Math.max(1, Math.ceil(item.hp / playerDmg));
+    const badgeW = 64;
+    const badgeH = 24;
+    const badgeY = item.y - item.height * 0.5 - 30;
+    roundRect(item.x - badgeW * 0.5, badgeY, badgeW, badgeH, 12, "rgba(5, 9, 14, 0.88)", item.option.color);
+    ctx.fillStyle = item.option.color;
+    ctx.font = "900 16px 'Space Grotesk'";
+    ctx.fillText(`${shotsNeeded}`, item.x - 10, badgeY + 17);
     ctx.font = "800 10px 'Space Grotesk'";
-    ctx.fillStyle = "rgba(255,255,255,0.72)";
-    ctx.fillText("BREAK", item.x, item.y - 15);
+    ctx.fillStyle = "rgba(255,255,255,0.78)";
+    ctx.fillText("SHOTS", item.x + 14, badgeY + 16);
     ctx.textAlign = "start";
   }
 }
@@ -1508,7 +1495,6 @@ function drawFloatingTexts() {
 
 function drawHud() {
   const { player } = state;
-  const compact = window.innerWidth <= 640;
   const stageLeft = Math.max(0, Math.ceil(state.stageDuration - state.stageTime));
   const weaponName = {
     bullet: "RIFLE",
@@ -1516,90 +1502,65 @@ function drawHud() {
     flame: "FLAMER",
   }[player.weaponType] || player.weaponType.toUpperCase();
 
-  if (compact) {
-    roundRect(14, 14, 198, 92, 18, "rgba(10, 14, 20, 0.78)", "rgba(255,255,255,0.1)");
-    roundRect(WIDTH - 306, 14, 292, 92, 18, "rgba(10, 14, 20, 0.78)", "rgba(255,255,255,0.1)");
-    ctx.fillStyle = "#f7fbff";
-    ctx.font = "800 28px 'Space Grotesk'";
-    ctx.fillText(`${Math.floor(state.score)}`, 30, 48);
-    ctx.font = "700 15px 'Space Grotesk'";
-    ctx.fillStyle = "rgba(255,255,255,0.72)";
-    ctx.fillText(`ST ${state.stage}`, 30, 74);
-    ctx.fillText(`${stageLeft}s`, 92, 74);
-    ctx.fillText(`BOSS ${state.stageBossesDefeated}/2`, 144, 74);
+  // 3 panels: Status | HP/XP | Weapon — 220px each, 12px gap, 18px side margin
+  const panelY = 18;
+  const panelH = 120;
+  const leftX = 18;
+  const midX = 250;
+  const rightX = 482;
+  const panelW = 220;
 
-    ctx.fillStyle = "#f7fbff";
-    ctx.font = "800 18px 'Space Grotesk'";
-    ctx.fillText(weaponName, WIDTH - 288, 42);
-    ctx.font = "800 15px 'Space Grotesk'";
-    ctx.fillText(`ATK ${player.damage}`, WIDTH - 288, 72);
-    ctx.fillText(`SHOT ${player.projectilesPerShot}`, WIDTH - 206, 72);
-    ctx.fillText(`ALLY ${player.companionCount}`, WIDTH - 112, 72);
-    ctx.font = "700 13px 'Space Grotesk'";
-    ctx.fillStyle = "rgba(255,255,255,0.72)";
-    ctx.fillText(`RATE ${player.fireRate.toFixed(2)}s`, WIDTH - 288, 92);
-    bar(WIDTH - 154, 86, 112, 8, state.xp / state.nextXp, "#72efdd");
-    bar(WIDTH - 154, 28, 112, 12, player.hp / player.maxHp, "#ff6b6b");
-    if (player.shield > 0) {
-      bar(WIDTH - 154, 46, 112, 7, player.shield / 60, "#bde0fe");
-    }
-    ctx.fillStyle = "#fff";
-    ctx.font = "800 12px 'Space Grotesk'";
-    ctx.fillText("HP", WIDTH - 36, 38);
-    ctx.fillText("XP", WIDTH - 36, 94);
+  roundRect(leftX, panelY, panelW, panelH, 22, "rgba(10, 14, 20, 0.72)", "rgba(255,255,255,0.08)");
+  roundRect(midX, panelY, panelW, panelH, 22, "rgba(10, 14, 20, 0.72)", "rgba(255,255,255,0.08)");
+  roundRect(rightX, panelY, panelW, panelH, 22, "rgba(10, 14, 20, 0.72)", "rgba(255,255,255,0.08)");
 
-    if (!audio.ready || audio.muted || state.audioHintTimer > 0) {
-      roundRect(WIDTH * 0.5 - 120, HEIGHT - 46, 240, 30, 15, "rgba(10, 14, 20, 0.74)", "rgba(255,255,255,0.08)");
-      ctx.fillStyle = "#f7fbff";
-      ctx.textAlign = "center";
-      ctx.font = "600 12px 'Space Grotesk'";
-      ctx.fillText(audio.muted ? "M: sound on" : "Tap to enable sound", WIDTH * 0.5, HEIGHT - 27);
-      ctx.textAlign = "start";
-    }
-
-    if (state.flash > 0) {
-      ctx.fillStyle = `rgba(255, 120, 95, ${state.flash * 0.18})`;
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    }
-    return;
-  }
-
-  roundRect(18, 18, 302, 112, 22, "rgba(10, 14, 20, 0.72)", "rgba(255,255,255,0.08)");
-  roundRect(WIDTH - 242, 18, 224, 112, 22, "rgba(10, 14, 20, 0.72)", "rgba(255,255,255,0.08)");
-  roundRect(336, 18, 308, 70, 22, "rgba(10, 14, 20, 0.72)", "rgba(255,255,255,0.08)");
-
+  // Left panel — score & stage
   ctx.fillStyle = "#f7fbff";
-  ctx.font = "700 17px 'Space Grotesk'";
-  ctx.fillText("SURVIVOR STATUS", 38, 42);
-  ctx.font = "700 24px 'Space Grotesk'";
-  ctx.fillText(`${Math.floor(state.score)}`, 38, 74);
-  ctx.font = "600 14px 'Space Grotesk'";
-  ctx.fillStyle = "rgba(255,255,255,0.68)";
-  ctx.fillText(`Stage ${state.stage}`, 40, 100);
-  ctx.fillText(`Boss ${state.stageBossesDefeated}/2`, 126, 100);
-  ctx.fillText(`${stageLeft}s left`, 218, 100);
-
-  bar(356, 34, 236, 14, player.hp / player.maxHp, "#ff6b6b");
-  bar(356, 60, 236, 10, state.xp / state.nextXp, "#72efdd");
-  if (player.shield > 0) {
-    bar(356, 78, 236, 8, player.shield / 60, "#bde0fe");
-  }
-  ctx.fillStyle = "#fff";
+  ctx.font = "700 15px 'Space Grotesk'";
+  ctx.fillText("SCORE", leftX + 20, panelY + 24);
+  ctx.font = "700 26px 'Space Grotesk'";
+  ctx.fillText(`${Math.floor(state.score)}`, leftX + 20, panelY + 56);
   ctx.font = "600 13px 'Space Grotesk'";
-  ctx.fillText("HP", 602, 46);
-  ctx.fillText("XP", 602, 66);
+  ctx.fillStyle = "rgba(255,255,255,0.68)";
+  ctx.fillText(`Stage ${state.stage}`, leftX + 20, panelY + 82);
+  ctx.fillText(`Boss ${state.stageBossesDefeated}/2`, leftX + 100, panelY + 82);
+  ctx.fillText(`${stageLeft}s left`, leftX + 20, panelY + 104);
 
+  // Middle panel — HP / XP / Shield bars with labels
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.font = "700 12px 'Space Grotesk'";
+  ctx.fillText("HP", midX + 16, panelY + 22);
+  ctx.fillText("XP", midX + 16, panelY + 60);
+  const barX = midX + 44;
+  const barW = 160;
+  bar(barX, panelY + 12, barW, 14, player.hp / player.maxHp, "#ff6b6b");
+  bar(barX, panelY + 50, barW, 10, state.xp / state.nextXp, "#72efdd");
   ctx.fillStyle = "#f7fbff";
-  ctx.font = "700 17px 'Space Grotesk'";
-  ctx.fillText("WEAPON", WIDTH - 222, 42);
-  ctx.font = "700 14px 'Space Grotesk'";
-    ctx.fillText(`${weaponName} ${player.damage}`, WIDTH - 222, 68);
-    ctx.fillText(`Burst ${player.projectilesPerShot}`, WIDTH - 222, 90);
-    ctx.fillText(`Fire ${player.fireRate.toFixed(2)}s`, WIDTH - 222, 112);
+  ctx.font = "600 11px 'Space Grotesk'";
+  ctx.fillText(`${Math.ceil(player.hp)}/${player.maxHp}`, barX + 4, panelY + 23);
+  ctx.fillText(`Lv ${state.level}`, barX + 4, panelY + 59);
+  if (player.shield > 0) {
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.font = "700 12px 'Space Grotesk'";
+    ctx.fillText("SH", midX + 16, panelY + 88);
+    bar(barX, panelY + 80, barW, 8, player.shield / 60, "#bde0fe");
+  }
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.font = "600 11px 'Space Grotesk'";
+  ctx.fillText(`Combo x${state.combo}`, midX + 16, panelY + 108);
 
+  // Right panel — weapon
+  ctx.fillStyle = "#f7fbff";
+  ctx.font = "700 15px 'Space Grotesk'";
+  ctx.fillText("WEAPON", rightX + 20, panelY + 24);
+  ctx.font = "700 13px 'Space Grotesk'";
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.fillText(`${weaponName}`, rightX + 20, panelY + 48);
+  ctx.fillStyle = "rgba(255,255,255,0.78)";
   ctx.font = "600 12px 'Space Grotesk'";
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
-  ctx.fillText("Shoot enemies or break item boxes", WIDTH - 222, 132);
+  ctx.fillText(`PWR  ${player.damage}`, rightX + 20, panelY + 68);
+  ctx.fillText(`BURST  ${player.projectilesPerShot}`, rightX + 20, panelY + 86);
+  ctx.fillText(`FIRE  ${player.fireRate.toFixed(2)}s`, rightX + 20, panelY + 104);
 
   if (!audio.ready || audio.muted || state.audioHintTimer > 0) {
     roundRect(WIDTH * 0.5 - 160, HEIGHT - 56, 320, 34, 17, "rgba(10, 14, 20, 0.74)", "rgba(255,255,255,0.08)");
