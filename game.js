@@ -342,10 +342,12 @@ function createState() {
     nextXp: 18,
     enemyTimer: 0,
     gateTimer: 5,
-    nextBossTime: 45,
     difficulty: 1,
     stage: 1,
-    nextStageTime: 30,
+    stageTime: 0,
+    stageDuration: 120,
+    stageBossesSpawned: 0,
+    stageBossesDefeated: 0,
     started: false,
     gameOver: false,
     audioHintTimer: 4,
@@ -625,11 +627,30 @@ function cleanupDeadEnemies() {
     if (enemy.hp > 0) {
       continue;
     }
-    gainXp(enemy.value, enemy.x, enemy.y);
-    audio.enemyDown();
-    state.flash = Math.max(state.flash, 0.12);
-    state.enemies.splice(i, 1);
+    defeatEnemy(i);
   }
+}
+
+function defeatEnemy(index) {
+  const enemy = state.enemies[index];
+  if (!enemy) return;
+  if (enemy.kind === "boss") {
+    state.stageBossesDefeated += 1;
+    addFloatingText(`BOSS ${state.stageBossesDefeated}/2`, enemy.x, enemy.y - 28, "#ffd166");
+  }
+  gainXp(enemy.value, enemy.x, enemy.y);
+  audio.enemyDown();
+  state.flash = Math.max(state.flash, 0.12);
+  state.enemies.splice(index, 1);
+}
+
+function removeEnemyWithoutKill(index) {
+  const enemy = state.enemies[index];
+  if (!enemy) return;
+  if (enemy.kind === "boss") {
+    state.stageBossesSpawned = Math.max(state.stageBossesDefeated, state.stageBossesSpawned - 1);
+  }
+  state.enemies.splice(index, 1);
 }
 
 function fireCompanionShot(companion) {
@@ -883,7 +904,7 @@ function showStartScreen() {
     <div class="card start-card">
       <p class="start-kicker">STAGE SURVIVAL</p>
       <h2>무기를 고르고 출발</h2>
-      <p>스테이지가 오를수록 적의 체력, 속도, 출현 빈도가 조금씩 올라갑니다.</p>
+      <p>각 스테이지는 약 2분입니다. 보스 2명을 처치하면 다음 스테이지로 넘어갑니다.</p>
       <div class="weapon-choices">
         ${Object.entries(starterWeapons).map(([key, weapon]) => `
           <button class="choice weapon-choice" type="button" data-weapon="${key}">
@@ -908,6 +929,25 @@ function showGameOver() {
   `;
 }
 
+function advanceStage() {
+  state.stage += 1;
+  state.stageTime = 0;
+  state.stageBossesSpawned = 0;
+  state.stageBossesDefeated = 0;
+  state.enemyTimer = 1.2;
+  state.gateTimer = 3.5;
+  state.enemies = [];
+  state.bullets = [];
+  state.beams = [];
+  state.gates = [];
+  state.player.hp = clamp(state.player.hp + state.player.maxHp * 0.28, 0, state.player.maxHp);
+  state.player.shield = Math.min(60, state.player.shield + 18);
+  state.horizonPulse = 1;
+  state.flash = Math.max(state.flash, 0.2);
+  audio.levelUp();
+  addFloatingText(`STAGE ${state.stage}`, WIDTH * 0.5, 168, "#ffd166");
+}
+
 function rectsOverlap(a, b) {
   return (
     Math.abs(a.x - b.x) * 2 < (a.w + b.w) &&
@@ -921,14 +961,9 @@ function update(dt) {
   }
 
   state.time += dt;
+  state.stageTime += dt;
   state.distance += dt * 18;
-  if (state.time >= state.nextStageTime) {
-    state.stage += 1;
-    state.nextStageTime += 30 + Math.min(18, state.stage * 2);
-    state.horizonPulse = 1;
-    addFloatingText(`STAGE ${state.stage}`, WIDTH * 0.5, 168, "#ffd166");
-  }
-  state.difficulty = 1 + Math.min(3.2, state.time / 48) + (state.stage - 1) * 0.28;
+  state.difficulty = 1 + Math.min(1.4, state.stageTime / 92) + (state.stage - 1) * 0.34;
 
   const player = state.player;
   const movingLeft = keys.has("ArrowLeft") || keys.has("KeyA");
@@ -993,10 +1028,14 @@ function update(dt) {
     state.enemyTimer = rand(spawnRate * 0.65, spawnRate);
   }
 
-  if (state.time >= state.nextBossTime) {
+  const bossTimes = [45, 95];
+  if (
+    state.stageBossesSpawned < 2 &&
+    state.stageTime >= bossTimes[state.stageBossesSpawned]
+  ) {
     spawnEnemy("boss");
-    state.nextBossTime += Math.max(38, 58 - state.stage * 3);
-    addFloatingText("BOSS INCOMING", WIDTH * 0.5, 148, "#ffd166");
+    state.stageBossesSpawned += 1;
+    addFloatingText(`BOSS ${state.stageBossesSpawned}/2`, WIDTH * 0.5, 148, "#ffd166");
   }
 
   state.gateTimer -= dt;
@@ -1058,10 +1097,7 @@ function update(dt) {
       spawnHitParticles(bullet.x, bullet.y, enemy.color);
 
       if (enemy.hp <= 0) {
-        gainXp(enemy.value, enemy.x, enemy.y);
-        audio.enemyDown();
-        state.flash = Math.max(state.flash, 0.12);
-        state.enemies.splice(j, 1);
+        defeatEnemy(j);
       }
 
       audio.hit();
@@ -1075,7 +1111,7 @@ function update(dt) {
   for (let i = state.enemies.length - 1; i >= 0; i -= 1) {
     const enemy = state.enemies[i];
     if (enemy.y > HEIGHT + 40) {
-      state.enemies.splice(i, 1);
+      removeEnemyWithoutKill(i);
       applyPlayerDamage(enemy.damage * 0.42);
       state.player.hitFlash = 1;
       state.flash = 0.35;
@@ -1087,7 +1123,7 @@ function update(dt) {
       { x: player.x, y: player.y, w: player.w, h: player.h },
       enemy,
     )) {
-      state.enemies.splice(i, 1);
+      removeEnemyWithoutKill(i);
       applyPlayerDamage(enemy.damage);
       state.player.hitFlash = 1;
       state.flash = 0.35;
@@ -1147,6 +1183,8 @@ function update(dt) {
     state.gameOver = true;
     audio.gameOver();
     showGameOver();
+  } else if (state.stageTime >= state.stageDuration && state.stageBossesDefeated >= 2) {
+    advanceStage();
   }
 }
 
@@ -1388,6 +1426,7 @@ function drawFloatingTexts() {
 function drawHud() {
   const { player } = state;
   const compact = window.innerWidth <= 640;
+  const stageLeft = Math.max(0, Math.ceil(state.stageDuration - state.stageTime));
   const weaponName = {
     bullet: "RIFLE",
     laser: "LASER",
@@ -1404,8 +1443,8 @@ function drawHud() {
     ctx.font = "700 15px 'Space Grotesk'";
     ctx.fillStyle = "rgba(255,255,255,0.72)";
     ctx.fillText(`ST ${state.stage}`, 30, 74);
-    ctx.fillText(`LV ${state.level}`, 96, 74);
-    ctx.fillText(`${state.time.toFixed(0)}s`, 156, 74);
+    ctx.fillText(`${stageLeft}s`, 92, 74);
+    ctx.fillText(`BOSS ${state.stageBossesDefeated}/2`, 144, 74);
 
     ctx.fillStyle = "#f7fbff";
     ctx.font = "800 18px 'Space Grotesk'";
@@ -1455,8 +1494,8 @@ function drawHud() {
   ctx.font = "600 14px 'Space Grotesk'";
   ctx.fillStyle = "rgba(255,255,255,0.68)";
   ctx.fillText(`Stage ${state.stage}`, 40, 100);
-  ctx.fillText(`Level ${state.level}`, 126, 100);
-  ctx.fillText(`${state.time.toFixed(1)} sec`, 218, 100);
+  ctx.fillText(`Boss ${state.stageBossesDefeated}/2`, 126, 100);
+  ctx.fillText(`${stageLeft}s left`, 218, 100);
 
   bar(356, 34, 236, 14, player.hp / player.maxHp, "#ff6b6b");
   bar(356, 60, 236, 10, state.xp / state.nextXp, "#72efdd");
