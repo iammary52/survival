@@ -18,7 +18,16 @@ const randInt = (min, max) => Math.floor(rand(min, max + 1));
 const assets = {
   hero: loadImage("assets/hero-set-v3.png"),
   enemy: loadImage("assets/enemy-set-v3.png"),
+  enemyVariants: loadImage("assets/enemy-variants-v1.png"),
   bg: loadImage("assets/bg-mobile-highway-v1.png"),
+};
+
+const enemySpriteFrames = {
+  sprinter: { sx: 38, sy: 94, sw: 344, sh: 488, scale: 1.02 },
+  crawler: { sx: 390, sy: 306, sw: 420, sh: 286, scale: 1.06 },
+  brute: { sx: 828, sy: 116, sw: 368, sh: 474, scale: 1.16 },
+  runner: { sx: 1284, sy: 90, sw: 330, sh: 504, scale: 1.06 },
+  boss: { sx: 1640, sy: 70, sw: 484, sh: 536, scale: 1.22 },
 };
 
 const starterWeapons = {
@@ -1326,22 +1335,26 @@ function drawEnemies() {
     ctx.ellipse(0, enemy.h * 0.7, enemy.w * 0.6, enemy.h * 0.18, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    const enemyImage = assets.enemy;
+    const enemyImage = assets.enemyVariants;
+    const frame = enemySpriteFrames[enemy.variant] || enemySpriteFrames.runner;
     if (enemyImage.complete && enemyImage.naturalWidth > 0) {
-      const size = 118 * enemy.scale;
-      const filter = enemy.variant === "sprinter"
-        ? "brightness(0.86) saturate(0.82) hue-rotate(180deg) contrast(1)"
-        : enemy.variant === "crawler"
-          ? "brightness(0.75) saturate(0.55) hue-rotate(120deg) contrast(0.9)"
-          : enemy.variant === "brute" || enemy.variant === "boss"
-            ? "brightness(0.88) saturate(0.78) hue-rotate(300deg) contrast(1.04)"
-            : "brightness(0.8) saturate(0.64) contrast(0.94)";
-      ctx.filter = filter;
+      const drawH = enemy.h * enemy.scale * (frame.scale || 1) * 2.25;
+      const drawW = drawH * (frame.sw / frame.sh);
+      ctx.filter = "brightness(0.86) saturate(0.78) contrast(1.02)";
       ctx.globalAlpha = 0.94;
       ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(enemyImage, -size * 0.48, -size * 0.68, size * 0.96, size * 0.96);
+      ctx.drawImage(
+        enemyImage,
+        frame.sx,
+        frame.sy,
+        frame.sw,
+        frame.sh,
+        -drawW * 0.5,
+        -drawH * 0.72,
+        drawW,
+        drawH,
+      );
       ctx.filter = "none";
-      drawEnemyVariantMarks(enemy, size);
       if (enemy.hitTimer > 0) {
         ctx.globalCompositeOperation = "screen";
         ctx.fillStyle = "rgba(255, 120, 96, 0.12)";
@@ -1363,43 +1376,6 @@ function drawEnemies() {
     ctx.fillRect(-enemy.w * 0.5, -enemy.h * 0.64, enemy.w * (enemy.hp / enemy.maxHp), 6);
     ctx.restore();
   }
-}
-
-function drawEnemyVariantMarks(enemy, size) {
-  ctx.save();
-  ctx.globalAlpha = enemy.kind === "boss" ? 0.9 : 0.72;
-  if (enemy.variant === "sprinter") {
-    ctx.strokeStyle = "#7cc6fe";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(-size * 0.22, -size * 0.1);
-    ctx.lineTo(-size * 0.44, size * 0.22);
-    ctx.moveTo(size * 0.22, -size * 0.1);
-    ctx.lineTo(size * 0.44, size * 0.22);
-    ctx.stroke();
-  } else if (enemy.variant === "crawler") {
-    ctx.fillStyle = "rgba(72, 202, 228, 0.72)";
-    ctx.beginPath();
-    ctx.ellipse(0, size * 0.02, size * 0.34, size * 0.14, 0, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (enemy.variant === "brute") {
-    ctx.fillStyle = "rgba(255, 183, 3, 0.72)";
-    ctx.fillRect(-size * 0.34, -size * 0.46, size * 0.18, size * 0.22);
-    ctx.fillRect(size * 0.16, -size * 0.46, size * 0.18, size * 0.22);
-  } else if (enemy.variant === "boss") {
-    ctx.strokeStyle = "rgba(255, 209, 102, 0.9)";
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.arc(0, -size * 0.24, size * 0.34, Math.PI * 0.1, Math.PI * 0.9);
-    ctx.stroke();
-  } else {
-    ctx.fillStyle = "rgba(239, 71, 111, 0.7)";
-    ctx.beginPath();
-    ctx.arc(-size * 0.08, -size * 0.28, 5, 0, Math.PI * 2);
-    ctx.arc(size * 0.08, -size * 0.28, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
 }
 
 function drawCompanions() {
