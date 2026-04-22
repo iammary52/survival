@@ -350,7 +350,6 @@ function createState() {
     level: 1,
     nextXp: 18,
     enemyTimer: 0,
-    gateTimer: 5,
     difficulty: 1,
     stage: 1,
     stageTime: 0,
@@ -418,7 +417,23 @@ function startGame(weaponKey = "rifle") {
   addBannerText(`${starter.name} READY`, "#ffd6a5");
 }
 
-function spawnEnemy(kind = "normal") {
+function laneX(side) {
+  return side === "left" ? WIDTH * 0.34 : WIDTH * 0.66;
+}
+
+function resetWeaponLoadout() {
+  const player = state.player;
+  player.weaponType = "bullet";
+  player.damage = 2;
+  player.projectilesPerShot = 1;
+  player.fireRate = 0.16;
+  player.projectileSpeed = 760;
+  player.spread = 0.1;
+  player.pierce = 0;
+  player.fireTimer = 0;
+}
+
+function spawnEnemy(kind = "normal", x = null) {
   const t = state.time;
   const intensity = 1 + Math.min(3.2, t / 44) + (state.stage - 1) * 0.24;
   const eliteRoll = Math.random();
@@ -436,11 +451,11 @@ function spawnEnemy(kind = "normal") {
           : "runner";
 
   const base = {
-    x: rand(state.player.laneMinX + 14, state.player.laneMaxX - 14),
+    x: x ?? rand(state.player.laneMinX + 14, state.player.laneMaxX - 14),
     y: -40,
     w: 30,
     h: 40,
-    speed: rand(74, 112) * intensity,
+    speed: rand(58, 88) * intensity,
     hp: 1 + Math.floor(intensity * 0.72),
     maxHp: 1 + Math.floor(intensity * 0.72),
     damage: 9,
@@ -613,6 +628,18 @@ function fireLaser(x, y, damage, lanes = 1) {
         enemy.hp -= damage * 2.2;
         enemy.hitTimer = 0.16;
         spawnHitParticles(enemy.x, enemy.y, enemy.color);
+      }
+    }
+    for (let i = state.gates.length - 1; i >= 0; i -= 1) {
+      const item = state.gates[i];
+      const horizontal = Math.abs(item.x - beamX) < item.width * 0.5 + 12;
+      const vertical = item.y < y && item.y > 0;
+      if (horizontal && vertical) {
+        item.hp -= damage * 2.2;
+        spawnHitParticles(item.x, item.y, item.option.color);
+        if (item.hp <= 0) {
+          collectItemBox(i);
+        }
       }
     }
   }
@@ -859,26 +886,30 @@ function createGateOption() {
   return choices[randInt(0, choices.length - 1)];
 }
 
-function spawnGatePair() {
-  const leftX = WIDTH * 0.34;
-  const rightX = WIDTH * 0.66;
-  const left = createGateOption();
-  let right = createGateOption();
-  while (right.label === left.label) {
-    right = createGateOption();
-  }
+function spawnChoiceWave() {
+  const enemySide = Math.random() < 0.5 ? "left" : "right";
+  const itemSide = enemySide === "left" ? "right" : "left";
+  spawnEnemy("normal", laneX(enemySide));
 
   state.gates.push({
-    y: -60,
-    vy: 210,
-    leftX,
-    rightX,
-    width: 132,
-    height: 42,
-    passed: false,
-    left,
-    right,
+    x: laneX(itemSide),
+    y: -48,
+    vy: 128 + state.stage * 5,
+    width: 116,
+    height: 52,
+    hp: 2 + Math.floor(state.difficulty * 0.7),
+    maxHp: 2 + Math.floor(state.difficulty * 0.7),
+    option: createGateOption(),
   });
+}
+
+function collectItemBox(index) {
+  const item = state.gates[index];
+  if (!item) return;
+  item.option.apply();
+  state.score += 18;
+  audio.levelUp();
+  state.gates.splice(index, 1);
 }
 
 function addFloatingText(text, x, y, color = "#ffffff") {
@@ -927,7 +958,7 @@ function showStartScreen() {
     <div class="card start-card">
       <p class="start-kicker">STAGE SURVIVAL</p>
       <h2>무기를 고르고 출발</h2>
-      <p>각 스테이지는 약 2분입니다. 보스 2명을 처치하면 다음 스테이지로 넘어갑니다.</p>
+      <p>적과 아이템 박스가 좌우 라인으로 내려옵니다. 아이템은 쏴서 부수면 획득합니다.</p>
       <div class="weapon-choices">
         ${Object.entries(starterWeapons).map(([key, weapon]) => `
           <button class="choice weapon-choice" type="button" data-weapon="${key}">
@@ -982,11 +1013,11 @@ function advanceStage() {
   state.stageClear = false;
   state.pendingStageBonus = 0;
   state.enemyTimer = 1.2;
-  state.gateTimer = 3.5;
   state.enemies = [];
   state.bullets = [];
   state.beams = [];
   state.gates = [];
+  resetWeaponLoadout();
   state.player.hp = clamp(state.player.hp + state.player.maxHp * 0.28, 0, state.player.maxHp);
   state.player.shield = Math.min(60, state.player.shield + 18);
   state.horizonPulse = 1;
@@ -1071,9 +1102,9 @@ function update(dt) {
 
   state.enemyTimer -= dt;
   if (state.enemyTimer <= 0) {
-    spawnEnemy();
-    const baseRate = 1.12 - Math.min(0.5, state.time * 0.0048) - (state.stage - 1) * 0.055;
-    const spawnRate = Math.max(0.42, baseRate);
+    spawnChoiceWave();
+    const baseRate = 1.38 - Math.min(0.42, state.stageTime * 0.0038) - (state.stage - 1) * 0.045;
+    const spawnRate = Math.max(0.56, baseRate);
     state.enemyTimer = rand(spawnRate * 0.65, spawnRate);
   }
 
@@ -1085,12 +1116,6 @@ function update(dt) {
     spawnEnemy("boss");
     state.stageBossesSpawned += 1;
     addBannerText(`BOSS ${state.stageBossesSpawned}/2 INCOMING`, "#ffd166");
-  }
-
-  state.gateTimer -= dt;
-  if (state.gateTimer <= 0) {
-    spawnGatePair();
-    state.gateTimer = rand(7.5, 11);
   }
 
   for (const bullet of state.bullets) {
@@ -1126,6 +1151,30 @@ function update(dt) {
     const bullet = state.bullets[i];
     if (bullet.y < -20 || bullet.x < -20 || bullet.x > WIDTH + 20 || bullet.life <= 0) {
       state.bullets.splice(i, 1);
+      continue;
+    }
+
+    let bulletRemoved = false;
+    for (let j = state.gates.length - 1; j >= 0; j -= 1) {
+      const item = state.gates[j];
+      const hit =
+        bullet.x > item.x - item.width * 0.5 &&
+        bullet.x < item.x + item.width * 0.5 &&
+        bullet.y > item.y - item.height * 0.5 &&
+        bullet.y < item.y + item.height * 0.5;
+
+      if (!hit) continue;
+      item.hp -= bullet.damage;
+      spawnHitParticles(bullet.x, bullet.y, item.option.color);
+      audio.hit();
+      if (item.hp <= 0) {
+        collectItemBox(j);
+      }
+      state.bullets.splice(i, 1);
+      bulletRemoved = true;
+      break;
+    }
+    if (bulletRemoved) {
       continue;
     }
 
@@ -1181,17 +1230,8 @@ function update(dt) {
   }
 
   for (let i = state.gates.length - 1; i >= 0; i -= 1) {
-    const gate = state.gates[i];
-    if (gate.y > HEIGHT + 60) {
-      state.gates.splice(i, 1);
-      continue;
-    }
-
-    if (!gate.passed && gate.y >= player.y - 8) {
-      gate.passed = true;
-      const chosen = player.x < WIDTH * 0.5 ? gate.left : gate.right;
-      chosen.apply();
-      audio.levelUp();
+    const item = state.gates[i];
+    if (item.y > HEIGHT + 60) {
       state.gates.splice(i, 1);
     }
   }
@@ -1441,28 +1481,29 @@ function drawBullets() {
 }
 
 function drawGates() {
-  for (const gate of state.gates) {
-    const drawOption = (x, option) => {
-      ctx.fillStyle = "rgba(255,255,255,0.06)";
-      ctx.fillRect(x - gate.width * 0.5, gate.y - gate.height * 0.5, gate.width, gate.height);
-      ctx.strokeStyle = option.color;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(x - gate.width * 0.5, gate.y - gate.height * 0.5, gate.width, gate.height);
-      ctx.fillStyle = option.color;
-      ctx.font = "700 24px 'Space Grotesk'";
-      ctx.textAlign = "center";
-      ctx.fillText(option.label, x, gate.y + 8);
-    };
-
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
-    ctx.lineWidth = 2;
+  for (const item of state.gates) {
+    const hpRatio = clamp(item.hp / item.maxHp, 0, 1);
+    const x = item.x - item.width * 0.5;
+    const y = item.y - item.height * 0.5;
+    const glow = ctx.createRadialGradient(item.x, item.y, 8, item.x, item.y, 82);
+    glow.addColorStop(0, `${item.option.color}55`);
+    glow.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.moveTo(WIDTH * 0.5, gate.y - 38);
-    ctx.lineTo(WIDTH * 0.5, gate.y + 38);
-    ctx.stroke();
-
-    drawOption(gate.leftX, gate.left);
-    drawOption(gate.rightX, gate.right);
+    ctx.arc(item.x, item.y, 82, 0, Math.PI * 2);
+    ctx.fill();
+    roundRect(x, y, item.width, item.height, 12, "rgba(9, 15, 22, 0.82)", item.option.color);
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fillRect(x + 8, y + 8, item.width - 16, 8);
+    ctx.fillStyle = item.option.color;
+    ctx.fillRect(x + 8, y + 8, (item.width - 16) * hpRatio, 8);
+    ctx.fillStyle = item.option.color;
+    ctx.font = "900 24px 'Space Grotesk'";
+    ctx.textAlign = "center";
+    ctx.fillText(item.option.label, item.x, item.y + 12);
+    ctx.font = "800 10px 'Space Grotesk'";
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.fillText("BREAK", item.x, item.y - 15);
     ctx.textAlign = "start";
   }
 }
@@ -1587,7 +1628,7 @@ function drawHud() {
 
   ctx.font = "600 12px 'Space Grotesk'";
   ctx.fillStyle = "rgba(255,255,255,0.7)";
-  ctx.fillText("Choose gates by moving left / right", WIDTH - 222, 132);
+  ctx.fillText("Shoot enemies or break item boxes", WIDTH - 222, 132);
 
   if (!audio.ready || audio.muted || state.audioHintTimer > 0) {
     roundRect(WIDTH * 0.5 - 160, HEIGHT - 56, 320, 34, 17, "rgba(10, 14, 20, 0.74)", "rgba(255,255,255,0.08)");
