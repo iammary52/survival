@@ -323,6 +323,7 @@ function createState() {
     stageBossesDefeated: 0,
     stageStartScore: 0,
     stageClear: false,
+    pendingClear: false,
     stageKills: 0,
     stageItems: 0,
     enemyLane: Math.random() < 0.5 ? "left" : "right",
@@ -664,6 +665,9 @@ function defeatEnemy(index) {
   if (enemy.kind === "boss") {
     state.stageBossesDefeated += 1;
     addBannerText(`BOSS ${state.stageBossesDefeated}/2 DOWN`, "#ffd166");
+    if (state.stageBossesDefeated >= 2 && !state.stageClear) {
+      state.pendingClear = true;
+    }
   }
   gainXp(enemy.value, enemy.x, enemy.y);
   audio.enemyDown();
@@ -827,7 +831,7 @@ function spawnChoiceWave() {
   spawnEnemy("normal", laneX(enemySide));
 
   // Item lane: rare, deliberate decision points
-  const shouldSpawnItem = state.waveCount % 4 === 0 || (state.waveCount > 8 && Math.random() < 0.12);
+  const shouldSpawnItem = state.waveCount % 6 === 0 || (state.waveCount > 10 && Math.random() < 0.06);
   if (!shouldSpawnItem) {
     return;
   }
@@ -962,6 +966,7 @@ function advanceStage() {
   state.stageStartScore = state.score;
   state.waveCount = 0;
   state.stageClear = false;
+  state.pendingClear = false;
   state.pendingStageBonus = 0;
   state.enemyTimer = 1.2;
   state.stageKills = 0;
@@ -1230,7 +1235,8 @@ function update(dt) {
     state.gameOver = true;
     audio.gameOver();
     showGameOver();
-  } else if (state.stageTime >= state.stageDuration && state.stageBossesDefeated >= 2) {
+  } else if (state.pendingClear || state.stageBossesDefeated >= 2) {
+    state.pendingClear = false;
     showStageClear();
   }
 }
