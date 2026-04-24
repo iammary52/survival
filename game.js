@@ -17,9 +17,23 @@ const randInt = (min, max) => Math.floor(rand(min, max + 1));
 
 const assets = {
   hero: loadImage("assets/hero-set-v3.png"),
+  heroSheet: loadImage("assets/hero-sheet-v1.png"),
   enemy: loadImage("assets/enemy-set-v3.png"),
+  enemySheet: loadImage("assets/enemy-sheet-v1.png"),
   enemyVariants: loadImage("assets/enemy-variants-v1.png"),
   bg: loadImage("assets/bg-mobile-highway-v1.png"),
+};
+
+const heroAnim = {
+  frameW: 192,
+  frameH: 1024,
+  frames: [0, 1, 2, 3, 4, 5],
+};
+
+const enemyAnim = {
+  frameW: 192,
+  frameH: 1024,
+  frames: [0, 1, 2, 3, 4, 5],
 };
 
 const enemySpriteFrames = {
@@ -1262,7 +1276,7 @@ function drawBackground() {
 
 function drawPlayer() {
   const player = state.player;
-  const ready = assets.hero.complete && assets.hero.naturalWidth > 0;
+  const ready = assets.heroSheet.complete && assets.heroSheet.naturalWidth > 0;
   ctx.save();
   ctx.translate(player.x, player.y);
   ctx.rotate(player.roll);
@@ -1273,10 +1287,22 @@ function drawPlayer() {
   ctx.fill();
 
   if (ready) {
-    ctx.filter = "brightness(0.86) saturate(0.72) contrast(0.97)";
+    const frameIndex = heroAnim.frames[Math.floor(state.time * 10) % heroAnim.frames.length];
+    const sx = frameIndex * heroAnim.frameW;
+    ctx.filter = "brightness(0.9) saturate(0.78) contrast(1)";
     ctx.globalAlpha = 0.96;
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(assets.hero, -92, -152, 184, 184);
+    ctx.drawImage(
+      assets.heroSheet,
+      sx,
+      0,
+      heroAnim.frameW,
+      heroAnim.frameH,
+      -88,
+      -154,
+      176,
+      220,
+    );
     ctx.filter = "none";
     if (player.muzzleTimer > 0) {
       ctx.fillStyle = "rgba(255, 213, 128, 0.9)";
@@ -1319,9 +1345,43 @@ function drawEnemies() {
     ctx.ellipse(0, enemy.h * 0.7, enemy.w * 0.6, enemy.h * 0.18, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    const animatedEnemy = assets.enemySheet.complete && assets.enemySheet.naturalWidth > 0 && enemy.kind !== "boss" && enemy.variant !== "brute";
     const enemyImage = assets.enemyVariants;
     const frame = enemySpriteFrames[enemy.variant] || enemySpriteFrames.runner;
-    if (enemyImage.complete && enemyImage.naturalWidth > 0) {
+    if (animatedEnemy) {
+      const frameIndex = enemyAnim.frames[Math.floor(enemy.frame * 2.4) % enemyAnim.frames.length];
+      const sx = frameIndex * enemyAnim.frameW;
+      const drawH = enemy.h * enemy.scale * (enemy.variant === "crawler" ? 2.1 : 2.35);
+      const drawW = drawH * 0.78;
+      const offsetY = enemy.variant === "crawler" ? -drawH * 0.42 : -drawH * 0.68;
+      ctx.filter = enemy.variant === "sprinter"
+        ? "brightness(0.9) saturate(0.78) contrast(1.02)"
+        : enemy.variant === "crawler"
+          ? "brightness(0.82) saturate(0.72) contrast(0.96)"
+          : "brightness(0.86) saturate(0.78) contrast(1.02)";
+      ctx.globalAlpha = 0.95;
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(
+        assets.enemySheet,
+        sx,
+        0,
+        enemyAnim.frameW,
+        enemyAnim.frameH,
+        -drawW * 0.5,
+        offsetY,
+        drawW,
+        drawH,
+      );
+      ctx.filter = "none";
+      if (enemy.hitTimer > 0) {
+        ctx.globalCompositeOperation = "screen";
+        ctx.fillStyle = "rgba(255, 120, 96, 0.12)";
+        ctx.beginPath();
+        ctx.arc(0, -8, 34, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+      }
+    } else if (enemyImage.complete && enemyImage.naturalWidth > 0) {
       const drawH = enemy.h * enemy.scale * (frame.scale || 1) * 2.25;
       const drawW = drawH * (frame.sw / frame.sh);
       ctx.filter = "brightness(0.86) saturate(0.78) contrast(1.02)";
@@ -1375,10 +1435,22 @@ function drawCompanions() {
     ctx.beginPath();
     ctx.arc(0, -14, 38, 0, Math.PI * 2);
     ctx.stroke();
-    if (assets.hero.complete && assets.hero.naturalWidth > 0) {
+    if (assets.heroSheet.complete && assets.heroSheet.naturalWidth > 0) {
+      const frameIndex = heroAnim.frames[Math.floor((state.time + companion.angle) * 10) % heroAnim.frames.length];
+      const sx = frameIndex * heroAnim.frameW;
       ctx.globalAlpha = 0.96;
       ctx.filter = "brightness(1.1) saturate(0.95) hue-rotate(155deg) contrast(1.08)";
-      ctx.drawImage(assets.hero, -52, -74, 104, 104);
+      ctx.drawImage(
+        assets.heroSheet,
+        sx,
+        0,
+        heroAnim.frameW,
+        heroAnim.frameH,
+        -50,
+        -78,
+        100,
+        124,
+      );
       ctx.filter = "none";
     }
     ctx.fillStyle = "#72efdd";
