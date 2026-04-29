@@ -36,6 +36,7 @@ jobs:
           cp style.css _site/style.css
           cp game.js _site/game.js
           cp -r assets _site/assets
+          cp -r research _site/research
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
