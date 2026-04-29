@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>로켓랩(RKLB) & IREN 최근 상황과 투자 인사이트</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f2;
+      --ink: #15191f;
+      --muted: #5d6673;
+      --line: #d9ded2;
+      --panel: #ffffff;
+      --accent: #0f766e;
+      --accent-2: #b45309;
+      --accent-3: #334155;
+      --good: #0f7a45;
+      --warn: #a15c00;
+      --risk: #b42318;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.58;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    .hero {
+      min-height: 74vh;
+      display: grid;
+      align-items: end;
+      padding: clamp(28px, 5vw, 72px);
+      color: #fff;
+      background:
+        linear-gradient(180deg, rgba(9, 18, 28, 0.18), rgba(9, 18, 28, 0.88)),
+        url("https://images.unsplash.com/photo-1457364887197-9150188c107b?auto=format&fit=crop&w=1800&q=82") center / cover;
+    }
+
+    .hero-inner {
+      max-width: 1120px;
+    }
+
+    .eyebrow {
+      margin: 0 0 14px;
+      font-size: 0.84rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      color: #b9f1e8;
+    }
+
+    h1 {
+      max-width: 980px;
+      margin: 0;
+      font-size: clamp(2.4rem, 6vw, 5.6rem);
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 760px;
+      margin: 22px 0 0;
+      font-size: clamp(1rem, 1.8vw, 1.22rem);
+      color: #e6edf3;
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 34px clamp(18px, 4vw, 40px) 72px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: -58px 0 32px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .pill {
+      padding: 10px 13px;
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--accent-3);
+      font-size: 0.88rem;
+      font-weight: 700;
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
+    }
+
+    section {
+      margin-top: 38px;
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: clamp(1.55rem, 3vw, 2.35rem);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+      letter-spacing: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      grid-column: span 6;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 16px 34px rgba(21, 25, 31, 0.06);
+    }
+
+    .card.wide {
+      grid-column: span 12;
+    }
+
+    .signal {
+      border-left: 5px solid var(--accent);
+    }
+
+    .risk {
+      border-left: 5px solid var(--risk);
+    }
+
+    .watch {
+      border-left: 5px solid var(--accent-2);
+    }
+
+    .label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin-bottom: 10px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #e7f5f2;
+      color: #075e57;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .label.orange {
+      background: #fff3df;
+      color: #8a4700;
+    }
+
+    .label.gray {
+      background: #edf1f5;
+      color: #334155;
+    }
+
+    .metric {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .metric div {
+      min-height: 110px;
+      padding: 15px;
+      border-radius: 8px;
+      background: #f8faf7;
+      border: 1px solid var(--line);
+    }
+
+    .metric strong {
+      display: block;
+      font-size: clamp(1.35rem, 2.8vw, 2rem);
+      line-height: 1.04;
+      letter-spacing: 0;
+      color: var(--accent-3);
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    ul {
+      margin: 10px 0 0;
+      padding-left: 20px;
+    }
+
+    li + li {
+      margin-top: 8px;
+    }
+
+    .take {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .stance {
+      padding: 18px;
+      border-radius: 8px;
+      background: #101820;
+      color: #f8fafc;
+    }
+
+    .stance p {
+      margin: 8px 0 0;
+      color: #dbe4ee;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    th,
+    td {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #edf1f5;
+      color: #253142;
+      font-size: 0.86rem;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .source-list {
+      columns: 2;
+      column-gap: 28px;
+      padding-left: 20px;
+    }
+
+    .disclaimer {
+      margin-top: 34px;
+      padding: 18px;
+      border: 1px solid #efd8aa;
+      border-radius: 8px;
+      background: #fff9ec;
+      color: #574017;
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 820px) {
+      .hero {
+        min-height: 68vh;
+        padding: 24px 18px 76px;
+      }
+
+      .wrap {
+        padding-top: 24px;
+      }
+
+      .meta {
+        margin-top: -62px;
+      }
+
+      .card,
+      .card.wide {
+        grid-column: span 12;
+      }
+
+      .metric,
+      .take {
+        grid-template-columns: 1fr;
+      }
+
+      .source-list {
+        columns: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Investment Brief · 2026년 4월 29일 KST 기준</p>
+      <h1>로켓랩과 IREN, “실행력”이 밸류에이션을 결정한다</h1>
+      <p>RKLB는 우주 인프라 수직계열화와 Neutron의 시간표, IREN은 비트코인 채굴사에서 AI 클라우드 사업자로 바뀌는 속도가 핵심 변수입니다. 둘 다 꿈이 큰 주식이지만, 지금 시장은 스토리보다 납품·가동·마진을 더 크게 볼 가능성이 높습니다.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="meta">
+      <span class="pill">RKLB: 2025 매출 6.02억 달러</span>
+      <span class="pill">RKLB: 수주잔고 18.5억 달러</span>
+      <span class="pill">IREN: Microsoft 97억 달러 계약</span>
+      <span class="pill">공통 이벤트: 2026년 5월 7일 실적</span>
+    </div>
+
+    <section>
+      <h2>요약 판단</h2>
+      <div class="take">
+        <div class="stance">
+          <h3>Rocket Lab(RKLB)</h3>
+          <p>장기 매력은 여전히 높지만, 단기 주가는 Neutron 지연 비용과 2026년 가이던스의 질에 민감합니다. Electron의 반복 발사와 Space Systems 수주잔고가 하방을 받쳐주는 반면, Neutron 첫 발사 목표가 Q4 2026으로 밀리며 “성장 옵션”의 할인율은 올라갔습니다.</p>
+        </div>
+        <div class="stance">
+          <h3>IREN(IREN)</h3>
+          <p>Microsoft 계약으로 사업 정체성이 재평가됐습니다. 다만 투자 포인트는 계약 발표가 아니라 GPU 조달, 데이터센터 완공, 실제 ARR 전환입니다. 레버리지와 희석, 고객 집중, 전력·공급망 리스크를 함께 보는 고변동 성장주입니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Rocket Lab 최근 상황</h2>
+      <div class="grid">
+        <article class="card wide signal">
+          <span class="label">핵심 숫자</span>
+          <h3>2025년은 매출·마진·수주잔고 모두 기록 경신</h3>
+          <div class="metric">
+            <div><strong>$602M</strong><span>2025년 연간 매출, 전년 대비 38% 성장</span></div>
+            <div><strong>$180M</strong><span>2025년 4분기 매출</span></div>
+            <div><strong>$1.85B</strong><span>연말 수주잔고, 전년 대비 73% 증가</span></div>
+            <div><strong>$816M</strong><span>SDA 위성 18기 설계·제조 계약</span></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <span class="label gray">긍정 포인트</span>
+          <h3>발사 서비스만의 회사가 아니다</h3>
+          <ul>
+            <li>Electron은 2025년 21회 발사로 연간 기록을 세웠고, 2026년에도 Open Cosmos, ESA Celeste, 일본 위성 등 발사 cadence를 이어가고 있습니다.</li>
+            <li>Space Systems 매출 비중과 SDA 대형 계약은 로켓랩을 “발사 + 위성/부품/방산 인프라” 회사로 보게 만드는 근거입니다.</li>
+            <li>위성 구성품이 1,700개 이상 임무에 사용됐다는 회사 설명은 공급망 내 침투도가 꽤 깊어졌다는 신호입니다.</li>
+          </ul>
+        </article>
+
+        <article class="card risk">
+          <span class="label orange">리스크</span>
+          <h3>Neutron은 여전히 가장 큰 주가 변수</h3>
+          <ul>
+            <li>Stage 1 탱크 시험 실패 이후 첫 발사 목표가 Q4 2026으로 업데이트됐습니다. 이는 2026년 중반 기대를 낮추는 요인입니다.</li>
+            <li>Neutron은 대형 위성군·국가안보 임무로 TAM을 넓히는 핵심 옵션이라, 지연은 기술 리스크와 R&D 비용 우려를 동시에 키웁니다.</li>
+            <li>발사 성공률이 좋더라도 중형 발사체는 별도 검증이 필요합니다. 첫 발사 성공 여부보다 이후 반복 발사 가능성이 더 중요합니다.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>IREN 최근 상황</h2>
+      <div class="grid">
+        <article class="card wide signal">
+          <span class="label">핵심 숫자</span>
+          <h3>AI 클라우드 전환은 규모 면에서 이미 회사의 중심 서사</h3>
+          <div class="metric">
+            <div><strong>$9.7B</strong><span>Microsoft와 5년 GPU 클라우드 계약 규모</span></div>
+            <div><strong>$3.4B</strong><span>2026년 말 목표 AI Cloud ARR</span></div>
+            <div><strong>140k</strong><span>목표 GPU 확장 규모</span></div>
+            <div><strong>&gt;4.5GW</strong><span>확보한 grid-connected power</span></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <span class="label gray">긍정 포인트</span>
+          <h3>비트코인 채굴에서 AI 인프라로 밸류에이션 축이 이동</h3>
+          <ul>
+            <li>Microsoft 계약은 20% 선급금과 함께 GB300 GPU 접근권을 제공하는 구조이며, Dell 장비 구매 계약과 연결돼 있습니다.</li>
+            <li>Q2 FY26 기준 AI Cloud Services 매출은 전분기 730만 달러에서 1,730만 달러로 늘었고, 회사는 British Columbia와 Childress 확장을 병행하고 있습니다.</li>
+            <li>현금 및 현금성 자산은 2026년 1월 31일 예비 기준 28억 달러로 제시됐고, 회사는 회계연도 누적 92억 달러 이상의 자금 조달을 언급했습니다.</li>
+          </ul>
+        </article>
+
+        <article class="card risk">
+          <span class="label orange">리스크</span>
+          <h3>계약 규모와 주주 수익은 같은 말이 아니다</h3>
+          <ul>
+            <li>Q2 FY26 총매출은 1.847억 달러로 전분기 2.403억 달러보다 감소했고, 순손실은 1.554억 달러였습니다. 비현금·일회성 항목 영향이 컸지만 손익 변동성은 큽니다.</li>
+            <li>Microsoft 계약의 매출은 GPU 납품·설치·가동 이후 단계적으로 잡힙니다. Capex 선집행, 장비 공급, 데이터센터 완공 지연이 핵심 리스크입니다.</li>
+            <li>AI 클라우드 사업은 고객 집중, GPU 감가상각, 전력 비용, 기술 세대 교체, 추가 자금 조달과 희석 가능성을 함께 감수해야 합니다.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>다가오는 체크포인트</h2>
+      <div class="grid">
+        <article class="card watch">
+          <span class="label orange">2026년 5월 7일</span>
+          <h3>Rocket Lab Q1 2026 실적</h3>
+          <ul>
+            <li>Q1 매출 가이던스와 Space Systems 수주잔고 전환 속도</li>
+            <li>Neutron 일정 업데이트, 자동섬유적층(AFP) 전환 후 테스트 진척</li>
+            <li>Electron/HASTE 발사 일정과 방산·국가안보 수요의 지속성</li>
+          </ul>
+        </article>
+        <article class="card watch">
+          <span class="label orange">2026년 5월 7일</span>
+          <h3>IREN Q3 FY26 실적</h3>
+          <ul>
+            <li>Microsoft 프로젝트의 GPU 배치·데이터센터 공정률</li>
+            <li>AI Cloud ARR 계약분이 실제 매출로 넘어가는 속도</li>
+            <li>Capex, 부채 조건, 주식 발행 여부, 현금 소진 속도</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>투자 인사이트</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>구분</th>
+            <th>Rocket Lab</th>
+            <th>IREN</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>투자 성격</td>
+            <td>우주·방산 인프라 장기 성장주. 발사 서비스보다 Space Systems와 Neutron 옵션을 같이 보는 접근.</td>
+            <td>AI 데이터센터·GPU 클라우드 전환주. 계약 기반 성장 가시성은 커졌지만 실행 리스크가 큼.</td>
+          </tr>
+          <tr>
+            <td>상방 촉매</td>
+            <td>Neutron 시험 진척, 대형 방산/위성 계약 추가, Electron 발사 빈도 확대, Space Systems 마진 개선.</td>
+            <td>Microsoft 프로젝트 일정 준수, 추가 AI 고객 계약, ARR 목표의 계약화, 전력 포트폴리오 재평가.</td>
+          </tr>
+          <tr>
+            <td>하방 촉매</td>
+            <td>Neutron 추가 지연, 개발비 증가, 발사 실패, 정부 예산 지연, 고밸류에이션 조정.</td>
+            <td>GPU 공급 지연, 자금 조달 비용 상승, 희석, AI Cloud 마진 실망, 비트코인 채굴 수익성 악화.</td>
+          </tr>
+          <tr>
+            <td>관찰법</td>
+            <td>분기 매출보다 수주잔고의 질, Neutron 일정, 총마진, 현금 소진을 같이 확인.</td>
+            <td>발표 ARR보다 실제 가동 GPU, 고객별 매출 인식, Capex 대비 현금흐름을 확인.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>한 줄 결론</h2>
+      <div class="grid">
+        <article class="card signal">
+          <h3>RKLB</h3>
+          <p>“우주 인프라 플랫폼”으로 갈 수 있는 후보지만, 2026년에는 Neutron이 신뢰를 회복하기 전까지 밸류에이션 탄력은 제한될 수 있습니다.</p>
+        </article>
+        <article class="card signal">
+          <h3>IREN</h3>
+          <p>Microsoft 계약은 판을 바꿨지만, 지금부터는 발표가 아니라 공사·조달·가동·마진의 주식입니다. 기대가 큰 만큼 실망의 비용도 큽니다.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>출처</h2>
+      <ol class="source-list small">
+        <li><a href="https://investors.rocketlabcorp.com/news-releases/news-release-details/rocket-lab-announces-fourth-quarter-and-full-year-2025-financial">Rocket Lab Q4 & FY2025 Results</a></li>
+        <li><a href="https://investors.rocketlabcorp.com/news-releases/news-release-details/rocket-lab-announces-date-first-quarter-2026-financial-results">Rocket Lab Q1 2026 Results Date</a></li>
+        <li><a href="https://www.space.com/space-exploration/launches-spacecraft/rocket-lab-launch-eight-japanese-satellites-kakushin-rising-mission">Space.com: Rocket Lab April 2026 Launch</a></li>
+        <li><a href="https://www.globenewswire.com/news-release/2025/11/03/3178993/0/en/iren-secures-9-7bn-ai-cloud-contract-with-microsoft.html">IREN Microsoft Contract Announcement</a></li>
+        <li><a href="https://irisenergy.gcs-web.com/news-releases/news-release-details/iren-reports-q2-fy26-results">IREN Q2 FY2026 Results</a></li>
+        <li><a href="https://www.globenewswire.com/news-release/2026/04/23/3280352/0/en/IREN-to-Release-Q3-FY26-Results-on-May-7-2026.html">IREN Q3 FY2026 Results Date</a></li>
+      </ol>
+    </section>
+
+    <p class="disclaimer">이 문서는 공개 자료 기반의 리서치 요약이며 투자 자문이 아닙니다. 특히 RKLB와 IREN은 기술·실행·자금조달 변수에 따라 주가 변동성이 커질 수 있으므로, 실제 매수·매도 판단 전 최신 공시, 실적 발표, 본인의 위험 감내도를 반드시 확인해야 합니다.</p>
+  </main>
+</body>
+</html>
